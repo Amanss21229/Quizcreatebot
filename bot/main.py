@@ -674,6 +674,11 @@ def main():
     # Admin commands
     application.add_handler(CommandHandler("fjoin", fjoin_command))
     application.add_handler(CommandHandler("removefjoin", removefjoin_command))
+    application.add_handler(CommandHandler("stats", stats_command))
+    application.add_handler(CommandHandler("broadcast", broadcast_command))
+    application.add_handler(CommandHandler("promote", promote_command))
+    application.add_handler(CommandHandler("remove", remove_admin_command))
+    application.add_handler(CommandHandler("adminlist", adminlist_command))
     
     # Callback query handler
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
