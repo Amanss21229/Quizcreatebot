@@ -35,22 +35,23 @@ class QuizGenerator:
     
     def _create_prompt(self, chapter: str, num_questions: int) -> str:
         """Create a detailed prompt for Gemini to generate NEET-level MCQs."""
-        return f"""You are an expert NEET (National Eligibility cum Entrance Test) medical entrance exam question creator.
+        return f"""You are an expert NEET (National Eligibility cum Entrance Test - UG) medical entrance exam question creator with access to NEET Previous Year Questions (PYQs) database.
 
-Generate exactly {num_questions} Multiple Choice Questions (MCQs) from the NCERT Class 11th or 12th chapter: "{chapter}".
+Generate exactly {num_questions} Multiple Choice Questions (MCQs) for the chapter: "{chapter}" from NCERT Class 11th or 12th.
 
-Requirements:
-1. Questions MUST be NEET-standard difficulty level (medical entrance exam)
-2. Questions should cover Biology, Physics, or Chemistry topics from NCERT Class 11 & 12
-3. Include previous year NEET questions (PYQs) when relevant to the chapter
-4. Each question must have exactly 4 options labeled A, B, C, D
-5. Mark the correct answer clearly
-6. Questions should test conceptual understanding, not just memorization
+CRITICAL REQUIREMENTS:
+1. MUST use ACTUAL NEET UG Previous Year Questions (PYQs) from 2015-2024
+2. Questions MUST be from official NEET UG exam papers or NEET-standard test series
+3. Each question must be NEET-difficulty level (medical entrance exam standard)
+4. Cover Biology, Physics, or Chemistry topics from NCERT Class 11 & 12
+5. Each question must have EXACTLY 4 options
+6. Questions should test conceptual understanding and application
+7. Include year information if it's a PYQ (e.g., "NEET 2023")
 
 Output format (JSON array):
 [
   {{
-    "question": "What is the powerhouse of the cell?",
+    "question": "Which of the following is the powerhouse of the cell? (NEET 2019)",
     "options": [
       "Nucleus",
       "Mitochondria",
@@ -58,17 +59,19 @@ Output format (JSON array):
       "Golgi apparatus"
     ],
     "correct_answer": 1,
-    "explanation": "Brief explanation why this is correct"
+    "explanation": "Mitochondria is called the powerhouse of the cell as it produces ATP through cellular respiration."
   }}
 ]
 
-IMPORTANT: 
+STRICT FORMATTING RULES:
 - correct_answer is the index (0-3) of the correct option
-- Questions should be clinically relevant and NEET-focused
-- Ensure scientific accuracy
-- Use proper terminology
+- Question text must be clear and unambiguous
+- Options must be concise (preferably under 50 characters each)
+- Each option should be a complete standalone answer
+- Ensure scientific accuracy and proper terminology
+- Prioritize questions from NEET PYQs and official sources
 
-Generate exactly {num_questions} questions now in valid JSON format."""
+Generate exactly {num_questions} NEET PYQ-based questions now in valid JSON format."""
     
     def _parse_response(self, response_text: str, expected_count: int) -> List[Dict]:
         """Parse Gemini's response and extract quiz questions."""
