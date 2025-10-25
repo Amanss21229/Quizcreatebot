@@ -10,18 +10,19 @@ class QuizGenerator:
     def __init__(self):
         self.model = genai.GenerativeModel('gemini-2.5-flash')
     
-    def generate_quiz(self, chapter: str, num_questions: int) -> List[Dict]:
+    def generate_quiz(self, chapter: str, num_questions: int, language: str = 'english') -> List[Dict]:
         """
         Generate NEET-relevant MCQs for a given chapter.
         
         Args:
             chapter: Name of the NCERT chapter (Class 11 or 12)
             num_questions: Number of questions to generate (1-20)
+            language: Language for questions ('hindi' or 'english')
         
         Returns:
             List of dictionaries containing question data
         """
-        prompt = self._create_prompt(chapter, num_questions)
+        prompt = self._create_prompt(chapter, num_questions, language)
         
         try:
             response = self.model.generate_content(prompt)
@@ -33,11 +34,19 @@ class QuizGenerator:
             logger.error(f"Error generating quiz: {e}")
             raise
     
-    def _create_prompt(self, chapter: str, num_questions: int) -> str:
+    def _create_prompt(self, chapter: str, num_questions: int, language: str = 'english') -> str:
         """Create a detailed prompt for Gemini to generate NEET-level MCQs."""
+        
+        language_instruction = ""
+        if language == 'hindi':
+            language_instruction = "\n\nIMPORTANT: Generate ALL questions, options, and explanations in HINDI language (Devanagari script). Use proper Hindi scientific terminology."
+        else:
+            language_instruction = "\n\nIMPORTANT: Generate ALL questions, options, and explanations in ENGLISH language."
+        
         return f"""You are an expert NEET (National Eligibility cum Entrance Test - UG) medical entrance exam question creator with access to NEET Previous Year Questions (PYQs) database.
 
 Generate exactly {num_questions} Multiple Choice Questions (MCQs) for the chapter: "{chapter}" from NCERT Class 11th or 12th.
+{language_instruction}
 
 CRITICAL REQUIREMENTS:
 1. MUST use ACTUAL NEET UG Previous Year Questions (PYQs) from 2015-2024
@@ -46,7 +55,7 @@ CRITICAL REQUIREMENTS:
 4. Cover Biology, Physics, or Chemistry topics from NCERT Class 11 & 12
 5. Each question must have EXACTLY 4 options
 6. Questions should test conceptual understanding and application
-7. Include year information if it's a PYQ (e.g., "NEET 2023")
+7. Include year information if it's a PYQ (e.g., "NEET 2023" or "NEET 2023" in Hindi)
 
 Output format (JSON array):
 [

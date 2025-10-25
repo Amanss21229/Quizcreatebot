@@ -1,7 +1,7 @@
 import logging
 from functools import wraps
 from datetime import datetime
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from bot.config import TELEGRAM_BOT_TOKEN, MIN_QUESTIONS, MAX_QUESTIONS, ADMIN_USER_IDS
 from bot.quiz_generator import QuizGenerator
@@ -9,6 +9,7 @@ from bot.force_join import force_join_manager
 from bot.stats_manager import stats_manager
 from bot.admin_manager import AdminManager
 from bot.welcome_manager import welcome_manager
+from bot.language_manager import language_manager
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -174,13 +175,17 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
+        # Get language setting for this chat
+        chat_id = update.effective_chat.id
+        language = language_manager.get_language(chat_id)
+        
         await update.message.reply_text(
             f"🔄 Generating {num_questions} NEET-level questions for '{chapter}'...\n"
             f"Please wait a moment... 【~@DrQuizRobot】"
         )
         
-        logger.info(f"Generating quiz: chapter='{chapter}', questions={num_questions}")
-        questions = quiz_gen.generate_quiz(chapter, num_questions)
+        logger.info(f"Generating quiz: chapter='{chapter}', questions={num_questions}, language={language}")
+        questions = quiz_gen.generate_quiz(chapter, num_questions, language)
         
         if not questions:
             await update.message.reply_text(
@@ -736,6 +741,85 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         await update.message.reply_text(welcome_message)
 
+@bot_or_group_admin_only
+async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Set quiz language preference (bot admin or group admin only)."""
+    chat = update.effective_chat
+    current_language = language_manager.get_language(chat.id)
+    
+    # Create inline keyboard with language options
+    keyboard = [
+        [
+            InlineKeyboardButton("🇮🇳 हिन्दी (Hindi)", callback_data="lang_hindi"),
+            InlineKeyboardButton("🇬🇧 English", callback_data="lang_english")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    current_lang_text = "Hindi (हिन्दी)" if current_language == 'hindi' else "English"
+    
+    await update.message.reply_text(
+        f"🌐 **Language Selection** 【~@DrQuizRobot】\n\n"
+        f"Current Language: {current_lang_text}\n\n"
+        f"Choose your preferred language for quiz questions:\n"
+        f"👇 Select a language below",
+        reply_markup=reply_markup
+    )
+
+async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle language selection callback."""
+    query = update.callback_query
+    await query.answer()
+    
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    
+    # Check if user is bot admin or group admin
+    is_authorized = False
+    
+    # Check bot admin
+    if admin_manager.is_admin(user_id):
+        is_authorized = True
+    # Check group admin
+    elif update.effective_chat.type in ['group', 'supergroup']:
+        try:
+            member = await context.bot.get_chat_member(chat_id, user_id)
+            if member.status in ['creator', 'administrator']:
+                is_authorized = True
+        except:
+            pass
+    
+    if not is_authorized:
+        await query.edit_message_text(
+            "❌ Only bot admins or group admins can change language settings."
+        )
+        return
+    
+    # Extract language from callback data
+    if query.data == "lang_hindi":
+        language = "hindi"
+        language_name = "Hindi (हिन्दी)"
+        language_emoji = "🇮🇳"
+    elif query.data == "lang_english":
+        language = "english"
+        language_name = "English"
+        language_emoji = "🇬🇧"
+    else:
+        await query.edit_message_text("❌ Invalid language selection.")
+        return
+    
+    # Set language preference
+    language_manager.set_language(chat_id, language)
+    
+    chat_type = "group" if update.effective_chat.type in ['group', 'supergroup'] else "chat"
+    
+    await query.edit_message_text(
+        f"✅ Language Updated! {language_emoji}\n\n"
+        f"Language set to: **{language_name}**\n\n"
+        f"All quiz questions in this {chat_type} will now be generated in {language_name}.\n\n"
+        f"【~@DrQuizRobot】"
+    )
+
 async def check_membership_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle callback when user clicks 'I Joined - Check Again' button."""
     query = update.callback_query
@@ -786,10 +870,14 @@ def main():
     application.add_handler(CommandHandler("welcomeon", welcomeon_command))
     application.add_handler(CommandHandler("welcomeoff", welcomeoff_command))
     
+    # Language command (bot admin or group admin)
+    application.add_handler(CommandHandler("language", language_command))
+    
     # New member handler
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
     
-    # Callback query handler
+    # Callback query handlers
+    application.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
     
     application.add_error_handler(error_handler)

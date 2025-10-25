@@ -2,13 +2,16 @@
   "users": [
     1087968824,
     8162524828,
-    1526479638
+    1526479638,
+    8060327223
   ],
   "groups": [
-    -1002824728179
+    -1002824728179,
+    -1002796976762,
+    -1003049872361
   ],
-  "total_quizzes_generated": 2,
-  "total_questions_sent": 10,
+  "total_quizzes_generated": 3,
+  "total_questions_sent": 15,
   "start_time": "2025-10-25T16:38:02.956109",
-  "last_updated": "2025-10-25T17:04:38.986572"
+  "last_updated": "2025-10-25T17:25:30.576875"
 }
