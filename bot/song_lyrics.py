@@ -1,58 +1,88 @@
 import random
 
-# Collection of original Hindi poetic lines (2-4 lines) - romantic, motivational, friendship, emotional
-POETIC_LINES = [
-    "तेरी मुस्कान से रोशन है मेरा जहां\nतेरी बातों में खो जाता हूं मैं\nदोस्ती हो या प्यार, जो भी कहो\nतू है तो सब कुछ है मेरे पास 💕",
+# Personalized message templates for tagall - various moods and styles
+# Each will be filled with user's name/mention
+
+PERSONALIZED_MESSAGES = [
+    # Funny/Comedy
+    "😂 {name} जी का entry! सब हाथ जोड़ लो, बड़े लोग आ गए हैं! 🙏",
+    "🤣 {name} को देखो यार, इतना cute कैसे हो सकता है कोई? 😍💕",
+    "😆 {name} महाराज की तरफ से फ्री की biryani! अरे मज़ाक है 🍛😂",
+    "🤪 {name} का swag देखो, Netflix को bhi competition दे रहे हैं! 📺✨",
+    "😅 {name} बोले तो एकदम dhinchak! Full on masti mode activated 🔥🎉",
     
-    "हंसी-मज़ाक में बीती हर शाम\nयारों के साथ बनी हर याद\nजिंदगी है खूबसूरत तेरे साथ\nदोस्त तू है तो सब कुछ है आसान 😊",
+    # Flirty
+    "💘 {name}, तुम्हारी smile के आगे सूरज भी फीका पड़ जाए 🌞✨",
+    "😘 {name} की ek nazar = दिल का हाल बेकरार! 💕💫",
+    "🥰 {name} जैसा खूबसूरत इंसान मिलना मुश्किल है! Lucky us! 🍀💖",
+    "😍 {name}, तुम्हारी आवाज़ सुनकर दिल की धड़कन तेज़ हो जाती है! 💓🎵",
+    "💝 {name} को देखा और बस... दिल ले गए! Chori hogyi ji! 👀💕",
     
-    "तेरी आंखों में दिखता है जादू\nतेरी बातों में बसता है प्यार\nदिल की धड़कन भी कहती है\nतू मेरी ज़िंदगी का प्यारा साथी है 💖",
+    # Friendship/Wholesome
+    "🤗 {name} जैसे दोस्त मिल जाएं तो life set है! Forever वाली friendship 💙✨",
+    "🫂 {name}, तुम हो तो सब मुश्किलें आसान हो जाती हैं! Thank you yaar 🙏💕",
+    "😊 {name} के बिना group तो अधूरा है! Jaan ho tum is group ki 💚",
+    "🌟 {name} जैसा loyal friend? Rare hai boss, rare hai! 🔥👑",
+    "💛 {name}, तुम्हारे साथ बिताए हर पल यादगार हैं! Memories for life 📸✨",
     
-    "सपनों की दुनिया में तू है साथी\nहर खुशी में तेरा साया मिलता है\nज़िंदगी की राहों में चलते हुए\nतेरा साथ सबसे हसीन लगता है 💝",
+    # Sarcasm/Tease
+    "😏 {name} भाई, itna attitude? Hawa mein udne ka time aagaya kya? ✈️😂",
+    "🙄 {name} को लगता है वो special हैं... और sach mein hain bhi! 👑😎",
+    "😌 {name} का swag देखो, जैसे Bollywood star हों! Drama queen/king alert 🎬💅",
+    "🤨 {name}, online toh ho but reply nahi? Bhoot ban gaye kya? 👻😂",
+    "😆 {name} की photography skills = बस Mona Lisa की smile! Mysterious 🤳😅",
     
-    "चाँदनी रात हो या दिन की रोशनी\nतेरे साथ हर पल है खास\nमस्ती और प्यार से भरी दोस्ती\nतू है मेरी जिंदगी की आस 😍",
+    # Emotional/Personal
+    "🥺 {name}, तुम्हारा साथ सबसे खूबसूरत gift है! Grateful hun 💕🙏",
+    "😢 {name} के बिना कुछ अच्छा नहीं लगता... Miss you always 💔✨",
+    "🌈 {name}, तुमने मेरी ज़िंदगी में रंग भर दिए! Thank you 🎨💖",
+    "💫 {name} जैसा समझदार इंसान rare है! You're special 🌟💙",
+    "🙏 {name}, तुम्हारी हर बात दिल को छू जाती है! Real one ❤️✨",
     
-    "तेरे जैसा यार कहां मिलेगा\nदोस्ती का ये रिश्ता है प्यारा\nहर मुश्किल में साथ निभाया तूने\nतू है मेरा सच्चा सहारा ✨",
+    # Relatable/Teenage
+    "😭 {name} भी procrastinate करते हैं? Us moment! Welcome to the club 📚😂",
+    "🎮 {name} gaming kar rahe? Mujhe bhi le chalo yaar! Level up together 🕹️🔥",
+    "☕ {name} ko coffee bhi pasand hai? Soul connect ho gaya! ☕💕",
+    "📱 {name} bhi 3 baje tak phone chalate ho? Same energy! 😴📲",
+    "🍕 {name} + Pizza + Late night talks = Perfect combo! 🌙✨",
     
-    "खुशियों की बारिश हो या गम के बादल\nतेरे साथ हर मौसम सुहाना है\nदिल से दिल का ये नाता\nसबसे खूबसूरत और दीवाना है 🎵",
+    # Meme/Gen-Z Style  
+    "💀 {name} literally slaying! Main toh mar hi gaya bro 🔥😂",
+    "✨ {name} is giving main character energy! Period. 💅👑",
+    "🚀 {name} ka vibe? Out of this world! Literally unstoppable 🌌💫",
+    "👁️👄👁️ {name} ne pura game change kar diya! Respect++",
+    "🎯 {name} hits different! No cap, fr fr 💯🔥",
     
-    "रंगीन है जिंदगी तेरे संग\nहर पल में छुपी है खुशियां\nयारी हो या प्यार का इज़हार\nतेरे बिना अधूरी सी लगती हैं 🌹",
+    # Sad/Emotional
+    "💔 {name}, तुम्हारी कमी खलती है यार... Come back soon 🥺💙",
+    "😔 {name} के बिना सब सूना सा लगता है... Miss the good times 🌧️💕",
+    "🌙 {name}, रातें तुम्हारी यादों में गुज़र जाती हैं... 💭✨",
+    "🥀 {name} की खामोशी भी बहुत कुछ कह जाती है... Silent but special 💫",
+    "🕊️ {name}, तुम्हारी बातें दिल को सुकून देती हैं... Peace 🙏💙",
     
-    "तेरी हंसी में छुपा है जादू\nतेरी बातों में मिलती है राहत\nदोस्त तू है या कोई फरिश्ता\nतेरा साथ है मेरी किस्मत 😊💕",
+    # Motivational/Positive
+    "🔥 {name} unstoppable है! Keep shining star ⭐💪",
+    "💪 {name} जैसा fighter मिलना मुश्किल है! Warrior vibes 🛡️👑",
+    "⚡ {name} की energy देखो! Sabko charge kar dete hain 🔋✨",
+    "🌟 {name}, तुम्हारा confidence सबको inspire करता है! Keep it up 💯🎯",
+    "🎯 {name} goals achieve kar lenge! Believe in yourself 🚀💙",
     
-    "सितारों भरी रात हो या सूरज की धूप\nतेरे साथ हर लम्हा है खास\nप्यार और दोस्ती का ये बंधन\nसबसे प्यारा है मेरे पास 💫",
+    # Random Fun
+    "🦄 {name} is literally a unicorn! Rare and magical ✨💖",
+    "🎭 {name} ka drama? Netflix se zyada interesting! 📺😂",
+    "🌮 {name} + Food = Match made in heaven! Foodie gang 🍔💕",
+    "🎨 {name} creative af! Artist vibes 100% 🖌️✨",
+    "🎵 {name} ki playlist? Fire hai boss! Music lover 🔥🎧",
     
-    "उड़ान भरने का हौसला तूने दिया\nहर मुश्किल से लड़ना सिखाया\nदोस्त तू है तो डर किस बात का\nतेरे साथ हर सपना पूरा हो जाए 🕊️",
-    
-    "तेरे साथ जीने का मज़ा ही अलग है\nहर दिन एक नया अहसास मिलता है\nमोहब्बत हो या यारी का रिश्ता\nतेरे बिना कुछ भी अच्छा नहीं लगता 💑",
-    
-    "दिल की गहराइयों में बसा है तू\nहर ख्वाब में तेरा चेहरा दिखता है\nप्यार की इस कहानी में\nतू ही मेरा सबसे प्यारा किरदार है 💔",
-    
-    "साथ चलने का वादा है हमारा\nजिंदगी के हर मोड़ पर साथ हैं हम\nदोस्ती का ये रिश्ता है अनमोल\nतू मेरा यार, मैं तेरा हमसफर 🌟",
-    
-    "नज़रों से बातें करना तूने सिखाया\nदिल को धड़कना तूने सिखाया\nजिंदगी को जीने का सलीका\nतेरी मुस्कान ने मुझे सिखाया 😘",
-    
-    "तेरे बिना अधूरा सा लगता है सब\nतेरे साथ पूरी होती है हर बात\nदोस्ती हो या प्यार का एहसास\nतू है तो महफिल रहती है जमी रात 💕",
-    
-    "दिल की बातें तुझसे कहूं\nप्यार की ये कहानी तुझे सुनाऊं\nहर लम्हा तेरे साथ बिताना चाहूं\nजिंदगी भर तुझे याद करूं 🙏💖",
-    
-    "चांद-सितारों से भी प्यारा है तेरा चेहरा\nफूलों से भी महकती है तेरी बातें\nदोस्त हो तुम या कोई खास\nमेरी जिंदगी में तुम्हारी जगह कोई नहीं ले सकता 🌙",
-    
-    "दिल की धड़कन में बसा है नाम तेरा\nहर सांस में महसूस होता है तू\nप्यार हो या दोस्ती का रिश्ता\nहर पल तेरे साथ जीना चाहता हूं 💘",
-    
-    "यादों की किताब में लिखा है तेरा नाम\nदिल के कोने में बसा है तेरा प्यार\nजिंदगी की हर खुशी में\nतेरी मुस्कान का एहसास मिलता है 🌈",
-    
-    "जिंदगी के रंग बदलते रहते हैं\nपर तेरी दोस्ती का रंग वैसा ही है\nहर मोड़ पर साथ निभाना\nये वादा है हमारा सदा के लिए 🌟",
-    
-    "तुझे याद करना मेरी आदत बन गई\nतेरे बिना जीना मुश्किल लगता है\nदोस्ती का ये प्यारा रिश्ता\nसबसे खूबसूरत और खास है 💭",
-    
-    "तेरी कमी का अहसास हमेशा रहता है\nतेरे बिना सूना सूना लगता है\nप्यार हो या यारी का बंधन\nतेरे साथ हर पल जीना चाहता हूं 💔",
-    
-    "पहली नजर से ही दिल को छू गए तुम\nतेरी मुस्कान में खो गया मैं\nप्यार की इस डगर पर चलते हुए\nतेरा साथ सबसे प्यारा लगता है 😍✨",
-    
-    "मस्ती और धमाल की दुनिया में\nतेरे जैसा यार नहीं मिलेगा\nहंसी-खुशी से भरी ज़िंदगी\nतेरे साथ हर दिन त्योहार है 🎉"
+    # Sweet/Kind
+    "🌸 {name} जैसा sweet person? Rare gem hai! 💎💕",
+    "🍯 {name} की मीठी बातें > सब cheezein! Honey you are 🐝✨",
+    "💗 {name}, तुम्हारा दिल सोने जैसा है! Pure soul 🙏💫",
+    "🌺 {name} की kindness सबको मोह लेती है! Beautiful inside out 🌈💖",
+    "🎀 {name} is a blessing! Lucky to have you around 🍀💙"
 ]
 
-def get_random_poetic_lines():
-    """Get random Hindi poetic lines (2-4 lines)."""
-    return random.choice(POETIC_LINES)
+def get_personalized_message(user_name):
+    """Get a random personalized message for a user."""
+    template = random.choice(PERSONALIZED_MESSAGES)
+    return template.format(name=user_name)
