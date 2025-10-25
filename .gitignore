@@ -1,8 +1,43 @@
+# Environment
+.env
+.env.development
+.pythonlibs/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Node (legacy - can be removed if fully migrated to Python)
 node_modules
 dist
-.mastra
-.env.development
-.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
 *.db
 *.db-*
-.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+.cache/
+.local/
+.config/
+.upm/
+.mastra/
