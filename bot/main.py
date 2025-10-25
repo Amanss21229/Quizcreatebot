@@ -11,6 +11,7 @@ from bot.admin_manager import AdminManager
 from bot.welcome_manager import welcome_manager
 from bot.language_manager import language_manager
 from bot.song_lyrics import get_random_poetic_lines
+from bot.tagall_manager import tagall_manager
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -821,16 +822,42 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"【~@DrQuizRobot】"
     )
 
-@bot_or_group_admin_only
 async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tag all group members with Hindi poetic lines (bot admin or group admin only)."""
+    """Tag all group members with Hindi poetic lines."""
     chat = update.effective_chat
+    user_id = update.effective_user.id
     
     # Check if command is in a group
     if chat.type not in ['group', 'supergroup']:
         await update.message.reply_text(
             "❌ This command can only be used in groups!"
         )
+        return
+    
+    # Check if user is bot admin
+    is_bot_admin = admin_manager.is_admin(user_id)
+    
+    # Check if user is group admin
+    is_group_admin = False
+    try:
+        member = await context.bot.get_chat_member(chat.id, user_id)
+        if member.status in ['creator', 'administrator']:
+            is_group_admin = True
+    except:
+        pass
+    
+    # Check permission using tagall_manager
+    if not tagall_manager.can_use_tagall(chat.id, user_id, is_bot_admin, is_group_admin):
+        permission_type = tagall_manager.get_permission(chat.id)
+        if permission_type == 'admin':
+            await update.message.reply_text(
+                "❌ Only admins can use this command!\n\n"
+                "Group admins can change this with /allowtagall user"
+            )
+        else:
+            await update.message.reply_text(
+                "❌ You don't have permission to use this command."
+            )
         return
     
     try:
@@ -905,6 +932,60 @@ async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Please make sure the bot has necessary permissions."
         )
 
+@bot_or_group_admin_only
+async def allowtagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Set who can use /tagall command (bot admin or group admin only)."""
+    chat = update.effective_chat
+    
+    # Check if command is in a group
+    if chat.type not in ['group', 'supergroup']:
+        await update.message.reply_text(
+            "❌ This command can only be used in groups!"
+        )
+        return
+    
+    # Check arguments
+    if not context.args or len(context.args) < 1:
+        current_permission = tagall_manager.get_permission(chat.id)
+        permission_text = "All Users" if current_permission == 'user' else "Admins Only"
+        
+        await update.message.reply_text(
+            f"⚙️ **TagAll Permission Settings** 【~@DrQuizRobot】\n\n"
+            f"Current Setting: **{permission_text}**\n\n"
+            f"Usage:\n"
+            f"• /allowtagall user - Allow all members to use /tagall\n"
+            f"• /allowtagall admin - Allow only admins to use /tagall\n\n"
+            f"Example: /allowtagall user"
+        )
+        return
+    
+    permission_type = context.args[0].lower()
+    
+    if permission_type not in ['user', 'admin']:
+        await update.message.reply_text(
+            "❌ Invalid option!\n\n"
+            "Please use:\n"
+            "• /allowtagall user - Allow all members\n"
+            "• /allowtagall admin - Allow only admins"
+        )
+        return
+    
+    # Set permission
+    tagall_manager.set_permission(chat.id, permission_type)
+    
+    if permission_type == 'user':
+        await update.message.reply_text(
+            f"✅ Permission Updated! 【~@DrQuizRobot】\n\n"
+            f"📢 All members of **{chat.title}** can now use /tagall command.\n\n"
+            f"Everyone can tag members with beautiful messages! 🎉"
+        )
+    else:
+        await update.message.reply_text(
+            f"✅ Permission Updated! 【~@DrQuizRobot】\n\n"
+            f"🔒 Only admins of **{chat.title}** can use /tagall command.\n\n"
+            f"Bot admins and group admins have access. 👮"
+        )
+
 async def check_membership_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle callback when user clicks 'I Joined - Check Again' button."""
     query = update.callback_query
@@ -958,8 +1039,9 @@ def main():
     # Language command (bot admin or group admin)
     application.add_handler(CommandHandler("language", language_command))
     
-    # Tag all command (bot admin or group admin)
+    # Tag all commands (bot admin or group admin)
     application.add_handler(CommandHandler("tagall", tagall_command))
+    application.add_handler(CommandHandler("allowtagall", allowtagall_command))
     
     # New member handler
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
