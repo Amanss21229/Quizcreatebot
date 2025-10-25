@@ -38,10 +38,9 @@ def bot_or_group_admin_only(func):
     """Decorator to restrict command to bot admins or group admins only."""
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
         chat = update.effective_chat
         
-        # Check if this is an anonymous admin
+        # Check if this is an anonymous admin (must check before accessing effective_user)
         if anonymous_verifier.is_anonymous_admin(update):
             # Send verification button
             command_name = update.message.text.split()[0] if update.message.text else "command"
@@ -49,6 +48,13 @@ def bot_or_group_admin_only(func):
                 update, context, command_name, func
             )
             return
+        
+        # Get user_id (safe to access now since we've handled anonymous case)
+        if not update.effective_user:
+            await update.message.reply_text("❌ Unable to identify user.")
+            return
+        
+        user_id = update.effective_user.id
         
         # Check if user is bot admin
         if admin_manager.is_admin(user_id):
@@ -1019,6 +1025,24 @@ async def check_membership_callback(update: Update, context: ContextTypes.DEFAUL
         keyboard = force_join_manager.create_join_buttons(not_joined)
         await query.edit_message_text(message, reply_markup=keyboard)
 
+async def anonymous_verification_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle callback when anonymous admin clicks verification button."""
+    query = update.callback_query
+    
+    if not query.data or not query.data.startswith("verify:"):
+        await query.answer("❌ Invalid verification token!", show_alert=True)
+        return
+    
+    token = query.data.split(":", 1)[1]
+    user_id = update.effective_user.id
+    
+    await anonymous_verifier.verify_and_execute(
+        query=query,
+        user_id=user_id,
+        token=token,
+        bot=context.bot
+    )
+
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by updates."""
     logger.error(f"Update {update} caused error {context.error}")
@@ -1057,6 +1081,7 @@ def main():
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
     
     # Callback query handlers
+    application.add_handler(CallbackQueryHandler(anonymous_verification_callback, pattern="^verify:"))
     application.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
     
