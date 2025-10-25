@@ -131,8 +131,8 @@ python -m bot.main
 
 ## Technical Details
 
-- **Bot Framework**: python-telegram-bot (v21.0+)
-- **AI Model**: Google Gemini 1.5 Flash
+- **Bot Framework**: python-telegram-bot (v22.5)
+- **AI Model**: Google Gemini 2.5 Flash
 - **Language**: Python 3.11
 - **Deployment**: Render (or any Python hosting platform)
 

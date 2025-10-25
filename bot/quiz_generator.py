@@ -8,7 +8,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 class QuizGenerator:
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
     
     def generate_quiz(self, chapter: str, num_questions: int) -> List[Dict]:
         """
@@ -28,7 +28,9 @@ class QuizGenerator:
             questions = self._parse_response(response.text, num_questions)
             return questions
         except Exception as e:
-            print(f"Error generating quiz: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error generating quiz: {e}")
             raise
     
     def _create_prompt(self, chapter: str, num_questions: int) -> str:
@@ -95,8 +97,10 @@ Generate exactly {num_questions} questions now in valid JSON format."""
             return questions
         
         except (json.JSONDecodeError, ValueError, KeyError) as e:
-            print(f"Error parsing response: {e}")
-            print(f"Response text: {response_text[:500]}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error parsing response: {e}")
+            logger.debug(f"Response text: {response_text[:500]}")
             raise ValueError("Failed to parse quiz questions from AI response")
     
     def format_question_with_watermark(self, question_num: int, question_data: Dict) -> str:
