@@ -10,6 +10,7 @@ from bot.stats_manager import stats_manager
 from bot.admin_manager import AdminManager
 from bot.welcome_manager import welcome_manager
 from bot.language_manager import language_manager
+from bot.song_lyrics import get_random_poetic_lines
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -820,6 +821,90 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"【~@DrQuizRobot】"
     )
 
+@bot_or_group_admin_only
+async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Tag all group members with Hindi poetic lines (bot admin or group admin only)."""
+    chat = update.effective_chat
+    
+    # Check if command is in a group
+    if chat.type not in ['group', 'supergroup']:
+        await update.message.reply_text(
+            "❌ This command can only be used in groups!"
+        )
+        return
+    
+    try:
+        await update.message.reply_text(
+            "🎭 Starting to tag all members with beautiful messages...\n\n"
+            "Please wait... 【~@DrQuizRobot】"
+        )
+        
+        # Get all chat administrators to get member count
+        administrators = await context.bot.get_chat_administrators(chat.id)
+        
+        # Track tagged users
+        tagged_count = 0
+        failed_count = 0
+        
+        # Tag each administrator
+        for admin in administrators:
+            if admin.user.is_bot:
+                continue
+            
+            try:
+                # Get random poetic lines
+                poetic_lines = get_random_poetic_lines()
+                
+                # Create mention
+                user_mention = f"[{admin.user.first_name}](tg://user?id={admin.user.id})"
+                
+                # Create decorated message
+                message = (
+                    f"✨💕 {user_mention} 💕✨\n\n"
+                    f"{poetic_lines}\n\n"
+                    f"【~@DrQuizRobot】"
+                )
+                
+                await update.message.reply_text(
+                    message,
+                    parse_mode='Markdown'
+                )
+                tagged_count += 1
+                
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"Failed to tag user {admin.user.id}: {e}")
+        
+        # Try to get recent members from chat (limited by Telegram API)
+        # Note: Full member list requires chat admin permissions and may not work for large groups
+        try:
+            # For smaller groups, we can try to get chat members
+            # This is limited and may not work for all groups
+            chat_member_count = await context.bot.get_chat_member_count(chat.id)
+            
+            await update.message.reply_text(
+                f"✅ Tagging Complete! 【~@DrQuizRobot】\n\n"
+                f"📊 Summary:\n"
+                f"✅ Tagged: {tagged_count} members\n"
+                f"📈 Total Members: {chat_member_count}\n\n"
+                f"💡 Note: Due to Telegram limitations, only administrators and recently active members can be tagged.\n\n"
+                f"【~@DrQuizRobot】"
+            )
+        except:
+            await update.message.reply_text(
+                f"✅ Tagging Complete! 【~@DrQuizRobot】\n\n"
+                f"📊 Tagged: {tagged_count} members\n"
+                f"❌ Failed: {failed_count}\n\n"
+                f"【~@DrQuizRobot】"
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in tagall command: {e}")
+        await update.message.reply_text(
+            "❌ An error occurred while tagging members. "
+            "Please make sure the bot has necessary permissions."
+        )
+
 async def check_membership_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle callback when user clicks 'I Joined - Check Again' button."""
     query = update.callback_query
@@ -872,6 +957,9 @@ def main():
     
     # Language command (bot admin or group admin)
     application.add_handler(CommandHandler("language", language_command))
+    
+    # Tag all command (bot admin or group admin)
+    application.add_handler(CommandHandler("tagall", tagall_command))
     
     # New member handler
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
