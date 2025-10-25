@@ -50,4 +50,4 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = ".pythonlibs/bin/python run.py"
+args = "python3 run.py"

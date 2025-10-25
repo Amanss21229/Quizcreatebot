@@ -12,6 +12,7 @@ from bot.welcome_manager import welcome_manager
 from bot.language_manager import language_manager
 from bot.song_lyrics import get_random_poetic_lines
 from bot.tagall_manager import tagall_manager
+from bot.anonymous_verifier import anonymous_verifier
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -39,6 +40,15 @@ def bot_or_group_admin_only(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         chat = update.effective_chat
+        
+        # Check if this is an anonymous admin
+        if anonymous_verifier.is_anonymous_admin(update):
+            # Send verification button
+            command_name = update.message.text.split()[0] if update.message.text else "command"
+            await anonymous_verifier.require_verification(
+                update, context, command_name, func
+            )
+            return
         
         # Check if user is bot admin
         if admin_manager.is_admin(user_id):
