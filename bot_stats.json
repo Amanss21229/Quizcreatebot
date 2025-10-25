@@ -1,11 +1,14 @@
 {
   "users": [
+    1087968824,
     8162524828,
     1526479638
   ],
-  "groups": [],
-  "total_quizzes_generated": 1,
-  "total_questions_sent": 5,
+  "groups": [
+    -1002824728179
+  ],
+  "total_quizzes_generated": 2,
+  "total_questions_sent": 10,
   "start_time": "2025-10-25T16:38:02.956109",
-  "last_updated": "2025-10-25T16:47:44.204468"
+  "last_updated": "2025-10-25T17:04:38.986572"
 }
