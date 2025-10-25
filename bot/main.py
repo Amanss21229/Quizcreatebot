@@ -116,10 +116,12 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Ensure options are strings and properly formatted
                 options = [str(opt).strip() for opt in q['options'][:4]]
                 
+                # Add watermark to question text
+                question_text = f"{i}. {q['question']}\n\n【~@DrQuizRobot】"
+                
                 # Telegram quiz questions have a 300 character limit
-                question_text = f"{i}. {q['question']}"
                 if len(question_text) > 300:
-                    question_text = question_text[:297] + "..."
+                    question_text = f"{i}. {q['question'][:270]}...\n\n【~@DrQuizRobot】"
                 
                 # Send the poll in quiz format
                 await update.message.reply_poll(
