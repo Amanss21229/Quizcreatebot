@@ -42,7 +42,7 @@ PERSONALIZED_MESSAGES = [
     # Relatable/Teenage
     "😭 {name} भी procrastinate करते हैं? Us moment! Welcome to the club 📚😂",
     "🎮 {name} gaming kar rahe? Mujhe bhi le chalo yaar! Level up together 🕹️🔥",
-    "☕ {name} ko coffee bhi pasand hai? Soul connect ho gaya! ☕💕",
+    "☕ {name} को coffee bhi pasand है? Soul connect ho gaya! ☕💕",
     "📱 {name} bhi 3 baje tak phone chalate ho? Same energy! 😴📲",
     "🍕 {name} + Pizza + Late night talks = Perfect combo! 🌙✨",
     
@@ -63,7 +63,7 @@ PERSONALIZED_MESSAGES = [
     # Motivational/Positive
     "🔥 {name} unstoppable है! Keep shining star ⭐💪",
     "💪 {name} जैसा fighter मिलना मुश्किल है! Warrior vibes 🛡️👑",
-    "⚡ {name} की energy देखो! Sabko charge kar dete hain 🔋✨",
+    "⚡ {name} की energy देखो! Sabko charge kar dete हैं 🔋✨",
     "🌟 {name}, तुम्हारा confidence सबको inspire करता है! Keep it up 💯🎯",
     "🎯 {name} goals achieve kar lenge! Believe in yourself 🚀💙",
     
@@ -82,7 +82,6 @@ PERSONALIZED_MESSAGES = [
     "🎀 {name} is a blessing! Lucky to have you around 🍀💙"
 ]
 
-def get_personalized_message(user_name):
-    """Get a random personalized message for a user."""
-    template = random.choice(PERSONALIZED_MESSAGES)
-    return template.format(name=user_name)
+def get_personalized_message_template():
+    """Get a random personalized message template with {name} placeholder."""
+    return random.choice(PERSONALIZED_MESSAGES)

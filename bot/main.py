@@ -1,4 +1,5 @@
 import logging
+import random
 from functools import wraps
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,7 +11,7 @@ from bot.stats_manager import stats_manager
 from bot.admin_manager import AdminManager
 from bot.welcome_manager import welcome_manager
 from bot.language_manager import language_manager
-from bot.song_lyrics import get_random_poetic_lines
+from bot.song_lyrics import get_personalized_message_template
 from bot.tagall_manager import tagall_manager
 from bot.anonymous_verifier import anonymous_verifier
 
@@ -839,7 +840,7 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tag all group members with Hindi poetic lines."""
+    """Tag all group members with personalized fun messages."""
     chat = update.effective_chat
     user_id = update.effective_user.id
     
@@ -878,35 +879,101 @@ async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         await update.message.reply_text(
-            "🎭 Starting to tag all members with beautiful messages...\n\n"
+            "🎯 Starting to tag all members with fun personalized messages...\n\n"
             "Please wait... 【~@DrQuizRobot】"
         )
         
-        # Get all chat administrators to get member count
+        # Get all chat administrators (due to Telegram API limitations, we can only get admins)
         administrators = await context.bot.get_chat_administrators(chat.id)
+        
+        # Collect all members (excluding bots and anonymous)
+        members_to_tag = []
+        for admin in administrators:
+            # Skip bots
+            if admin.user.is_bot:
+                continue
+            
+            # Skip anonymous admins  
+            if hasattr(admin, 'is_anonymous') and admin.is_anonymous:
+                continue
+                
+            members_to_tag.append(admin.user)
         
         # Track tagged users
         tagged_count = 0
         failed_count = 0
         
-        # Tag each administrator
-        for admin in administrators:
-            if admin.user.is_bot:
-                continue
-            
+        # Tag each member with personalized message
+        for member in members_to_tag:
             try:
-                # Get random poetic lines
-                poetic_lines = get_random_poetic_lines()
+                # Get user's first name
+                user_first_name = member.first_name
                 
-                # Create mention
-                user_mention = f"[{admin.user.first_name}](tg://user?id={admin.user.id})"
+                # Create mention link
+                user_mention = f"[{user_first_name}](tg://user?id={member.id})"
                 
-                # Create decorated message
-                message = (
-                    f"✨💕 {user_mention} 💕✨\n\n"
-                    f"{poetic_lines}\n\n"
-                    f"【~@DrQuizRobot】"
-                )
+                # Get personalized message template from helper function
+                message_template = get_personalized_message_template()
+                    "😂 {name} जी का entry! सब हाथ जोड़ लो, बड़े लोग आ गए हैं! 🙏",
+                    "🤣 {name} को देखो यार, इतना cute कैसे हो सकता है कोई? 😍💕",
+                    "😆 {name} महाराज की तरफ से फ्री की biryani! अरे मज़ाक है 🍛😂",
+                    "🤪 {name} का swag देखो, Netflix को bhi competition दे रहे हैं! 📺✨",
+                    "😅 {name} बोले तो एकदम dhinchak! Full on masti mode activated 🔥🎉",
+                    "💘 {name}, तुम्हारी smile के आगे सूरज भी फीका पड़ जाए 🌞✨",
+                    "😘 {name} की ek nazar = दिल का हाल बेकरार! 💕💫",
+                    "🥰 {name} जैसा खूबसूरत इंसान मिलना मुश्किल है! Lucky us! 🍀💖",
+                    "😍 {name}, तुम्हारी आवाज़ सुनकर दिल की धड़कन तेज़ हो जाती है! 💓🎵",
+                    "💝 {name} को देखा और बस... दिल ले गए! Chori hogyi ji! 👀💕",
+                    "🤗 {name} जैसे दोस्त मिल जाएं तो life set है! Forever वाली friendship 💙✨",
+                    "🫂 {name}, तुम हो तो सब मुश्किलें आसान हो जाती हैं! Thank you yaar 🙏💕",
+                    "😊 {name} के बिना group तो अधूरा है! Jaan ho tum is group ki 💚",
+                    "🌟 {name} जैसा loyal friend? Rare hai boss, rare hai! 🔥👑",
+                    "💛 {name}, तुम्हारे साथ बिताए हर पल यादगार हैं! Memories for life 📸✨",
+                    "😏 {name} भाई, itna attitude? Hawa mein udne ka time aagaya kya? ✈️😂",
+                    "🙄 {name} को लगता है वो special हैं... और sach mein hain bhi! 👑😎",
+                    "😌 {name} का swag देखो, जैसे Bollywood star हों! Drama queen/king alert 🎬💅",
+                    "🤨 {name}, online toh ho but reply nahi? Bhoot ban gaye kya? 👻😂",
+                    "😆 {name} की photography skills = बस Mona Lisa की smile! Mysterious 🤳😅",
+                    "🥺 {name}, तुम्हारा साथ सबसे खूबसूरत gift है! Grateful hun 💕🙏",
+                    "😢 {name} के बिना कुछ अच्छा नहीं लगता... Miss you always 💔✨",
+                    "🌈 {name}, तुमने मेरी ज़िंदगी में रंग भर दिए! Thank you 🎨💖",
+                    "💫 {name} जैसा समझदार इंसान rare है! You're special 🌟💙",
+                    "🙏 {name}, तुम्हारी हर बात दिल को छू जाती है! Real one ❤️✨",
+                    "😭 {name} भी procrastinate करते हैं? Us moment! Welcome to the club 📚😂",
+                    "🎮 {name} gaming kar rahe? Mujhe bhi le chalo yaar! Level up together 🕹️🔥",
+                    "☕ {name} को coffee bhi pasand hai? Soul connect ho gaya! ☕💕",
+                    "📱 {name} bhi 3 baje tak phone chalate ho? Same energy! 😴📲",
+                    "🍕 {name} + Pizza + Late night talks = Perfect combo! 🌙✨",
+                    "💀 {name} literally slaying! Main toh mar hi gaya bro 🔥😂",
+                    "✨ {name} is giving main character energy! Period. 💅👑",
+                    "🚀 {name} ka vibe? Out of this world! Literally unstoppable 🌌💫",
+                    "👁️👄👁️ {name} ne pura game change kar diya! Respect++",
+                    "🎯 {name} hits different! No cap, fr fr 💯🔥",
+                    "💔 {name}, तुम्हारी कमी खलती है यार... Come back soon 🥺💙",
+                    "😔 {name} के बिना सब सूना सा लगता है... Miss the good times 🌧️💕",
+                    "🌙 {name}, रातें तुम्हारी यादों में गुज़र जाती हैं... 💭✨",
+                    "🥀 {name} की खामोशी भी बहुत कुछ कह जाती है... Silent but special 💫",
+                    "🕊️ {name}, तुम्हारी बातें दिल को सुकून देती हैं... Peace 🙏💙",
+                    "🔥 {name} unstoppable है! Keep shining star ⭐💪",
+                    "💪 {name} जैसा fighter मिलना मुश्किल है! Warrior vibes 🛡️👑",
+                    "⚡ {name} की energy देखो! Sabko charge kar dete हैं 🔋✨",
+                    "🌟 {name}, तुम्हारा confidence सबको inspire करता है! Keep it up 💯🎯",
+                    "🎯 {name} goals achieve kar lenge! Believe in yourself 🚀💙",
+                    "🦄 {name} is literally a unicorn! Rare and magical ✨💖",
+                    "🎭 {name} ka drama? Netflix se zyada interesting! 📺😂",
+                    "🌮 {name} + Food = Match made in heaven! Foodie gang 🍔💕",
+                    "🎨 {name} creative af! Artist vibes 100% 🖌️✨",
+                    "🎵 {name} ki playlist? Fire hai boss! Music lover 🔥🎧",
+                    "🌸 {name} जैसा sweet person? Rare gem hai! 💎💕",
+                    "🍯 {name} की मीठी बातें > सब cheezein! Honey you are 🐝✨",
+                    "💗 {name}, तुम्हारा दिल सोने जैसा है! Pure soul 🙏💫",
+                    "🌺 {name} की kindness सबको मोह लेती है! Beautiful inside out 🌈💖",
+                    "🎀 {name} is a blessing! Lucky to have you around 🍀💙"
+                ])
+                
+                # Replace {name} with mention
+                message = message_template.replace("{name}", user_mention)
+                message += f"\n\n【~@DrQuizRobot】"
                 
                 await update.message.reply_text(
                     message,
