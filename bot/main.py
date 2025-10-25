@@ -1,8 +1,13 @@
 import logging
+from functools import wraps
+from datetime import datetime
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-from bot.config import TELEGRAM_BOT_TOKEN, MIN_QUESTIONS, MAX_QUESTIONS
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from bot.config import TELEGRAM_BOT_TOKEN, MIN_QUESTIONS, MAX_QUESTIONS, ADMIN_USER_IDS
 from bot.quiz_generator import QuizGenerator
+from bot.force_join import force_join_manager
+from bot.stats_manager import stats_manager
+from bot.admin_manager import AdminManager
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -11,7 +16,52 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 quiz_gen = QuizGenerator()
+admin_manager = AdminManager(ADMIN_USER_IDS)
 
+def admin_only(func):
+    """Decorator to restrict command to admins only."""
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        if not admin_manager.is_admin(user_id):
+            await update.message.reply_text("❌ This command is only available for admins.")
+            return
+        return await func(update, context)
+    return wrapper
+
+def check_force_join(func):
+    """Decorator to check if user has joined required groups/channels."""
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        
+        # Track user
+        stats_manager.add_user(user_id)
+        
+        # Track group if message is from a group
+        if update.effective_chat.type in ['group', 'supergroup']:
+            stats_manager.add_group(update.effective_chat.id)
+        
+        # Skip check for admins
+        if admin_manager.is_admin(user_id):
+            return await func(update, context)
+        
+        # Check membership
+        is_member, not_joined = await force_join_manager.check_user_membership(user_id, context)
+        
+        if not is_member:
+            message = "⚠️ Please join the following groups/channels to use this bot:\n\n"
+            for group in not_joined:
+                message += f"📢 {group['title']}\n"
+            
+            keyboard = force_join_manager.create_join_buttons(not_joined)
+            await update.message.reply_text(message, reply_markup=keyboard)
+            return
+        
+        return await func(update, context)
+    return wrapper
+
+@check_force_join
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a welcome message when the command /start is issued."""
     welcome_message = """
@@ -44,6 +94,7 @@ Start creating your NEET PYQ quiz now! 🚀
 """
     await update.message.reply_text(welcome_message)
 
+@check_force_join
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a help message when the command /help is issued."""
     help_text = """
@@ -66,6 +117,7 @@ Need help? Just type /start to see examples!
 """
     await update.message.reply_text(help_text)
 
+@check_force_join
 async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /cquiz command to generate a quiz."""
     try:
@@ -143,6 +195,9 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(formatted)
                 logger.warning(f"Sent question {i} as text instead of poll")
         
+        # Track quiz statistics
+        stats_manager.record_quiz(len(questions))
+        
         await update.message.reply_text(
             f"✅ Quiz complete! {len(questions)} questions sent.\n"
             f"Chapter: {chapter} 【~@DrQuizRobot】"
@@ -160,6 +215,448 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ An error occurred while generating the quiz. Please try again later."
         )
 
+@admin_only
+async def fjoin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command to add a group/channel to force join list."""
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "❌ Invalid format!\n\n"
+            "Usage:\n"
+            "/fjoin @username (for public channels)\n"
+            "/fjoin -1001234567890 (numeric chat ID)\n"
+            "/fjoin https://t.me/publicchannel (public link)\n"
+            "/fjoin https://t.me/+PrivateInviteCode -1001234567890 (private invite + chat ID)\n\n"
+            "For private groups/channels:\n"
+            "1. Get the invite link\n"
+            "2. Get the chat ID (forward a message to @userinfobot)\n"
+            "3. Use both: /fjoin <invite_link> <chat_id>"
+        )
+        return
+    
+    identifier = context.args[0]
+    chat_id_provided = context.args[1] if len(context.args) > 1 else None
+    
+    chat_id = None
+    chat_title = None
+    invite_link = None
+    
+    # Handle private invite links (https://t.me/+xxxx)
+    if identifier.startswith('https://t.me/+') or identifier.startswith('https://t.me/joinchat/'):
+        if not chat_id_provided:
+            await update.message.reply_text(
+                "❌ For private invite links, you must also provide the chat ID!\n\n"
+                "Usage: /fjoin <invite_link> <chat_id>\n\n"
+                "Example: /fjoin https://t.me/+AbCdEf123 -1001234567890\n\n"
+                "To get the chat ID:\n"
+                "1. Forward any message from the group/channel to @userinfobot\n"
+                "2. It will show you the chat ID"
+            )
+            return
+        
+        # Use provided chat ID
+        try:
+            chat = await context.bot.get_chat(chat_id_provided)
+            chat_id = str(chat.id)
+            chat_title = chat.title or "Private Group/Channel"
+            invite_link = identifier
+        except Exception as e:
+            await update.message.reply_text(
+                f"❌ Cannot access chat with ID {chat_id_provided}\n\n"
+                f"Make sure:\n"
+                f"• The bot is a member/admin of the group/channel\n"
+                f"• The chat ID is correct\n\n"
+                f"Error: {e}"
+            )
+            return
+    else:
+        # Try to get chat information for public channels or numeric IDs
+        try:
+            if identifier.startswith('@'):
+                chat = await context.bot.get_chat(identifier)
+            elif identifier.startswith('https://t.me/'):
+                username = identifier.replace('https://t.me/', '').split('?')[0]
+                if username.startswith('+'):
+                    await update.message.reply_text(
+                        "❌ Private invite link detected!\n\n"
+                        "Please provide both the invite link AND chat ID:\n"
+                        "/fjoin <invite_link> <chat_id>"
+                    )
+                    return
+                chat = await context.bot.get_chat(f'@{username}')
+            else:
+                # Numeric chat ID
+                chat = await context.bot.get_chat(identifier)
+            
+            chat_id = str(chat.id)
+            chat_title = chat.title or chat.username or "Unknown"
+            
+            # Generate invite link
+            try:
+                invite_link = await context.bot.export_chat_invite_link(chat_id)
+            except Exception as export_error:
+                logger.warning(f"Cannot export invite link for {chat_id}: {export_error}")
+                # Use the provided link or create one for public channels
+                if identifier.startswith('https://t.me/'):
+                    invite_link = identifier
+                elif identifier.startswith('@'):
+                    invite_link = f"https://t.me/{identifier[1:]}"
+                else:
+                    await update.message.reply_text(
+                        f"❌ Cannot generate invite link!\n\n"
+                        f"The bot needs 'Invite Users' permission OR you must provide:\n"
+                        f"/fjoin <invite_link> {chat_id}\n\n"
+                        f"Error: {export_error}"
+                    )
+                    return
+        
+        except Exception as e:
+            logger.error(f"Error getting chat info: {e}")
+            await update.message.reply_text(
+                f"❌ Cannot access chat: {identifier}\n\n"
+                f"Make sure:\n"
+                f"• The bot is admin in the group/channel\n"
+                f"• The username/ID is correct\n\n"
+                f"For private groups, use:\n"
+                f"/fjoin <invite_link> <chat_id>"
+            )
+            return
+    
+    # Add to force join list
+    if chat_id and invite_link:
+        success = force_join_manager.add_force_join(chat_id, invite_link, chat_title)
+        
+        if success:
+            current_groups = force_join_manager.get_force_join_groups()
+            await update.message.reply_text(
+                f"✅ Successfully added to force join list!\n\n"
+                f"📢 {chat_title}\n"
+                f"🆔 Chat ID: {chat_id}\n"
+                f"🔗 {invite_link}\n\n"
+                f"Total force join groups: {len(current_groups)}/5"
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Failed to add group/channel!\n\n"
+                "Possible reasons:\n"
+                "• Already in force join list\n"
+                "• Maximum limit (5) reached"
+            )
+    else:
+        await update.message.reply_text("❌ Missing required information (chat_id or invite_link)")
+
+@admin_only
+async def removefjoin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin command to remove a group/channel from force join list."""
+    if not context.args or len(context.args) < 1:
+        current_groups = force_join_manager.get_force_join_groups()
+        if not current_groups:
+            await update.message.reply_text("📭 No groups in force join list.")
+            return
+        
+        message = "📋 Current force join groups:\n\n"
+        for i, group in enumerate(current_groups, 1):
+            message += f"{i}. {group['title']}\n"
+            message += f"   ID: {group['chat_id']}\n"
+            message += f"   Link: {group['invite_link']}\n\n"
+        
+        message += "Usage: /removefjoin @username or chat_id or invite_link"
+        await update.message.reply_text(message)
+        return
+    
+    identifier = context.args[0]
+    
+    # Try to remove by identifier or by resolving chat ID
+    success = force_join_manager.remove_force_join(identifier)
+    
+    if not success:
+        try:
+            # Try to resolve chat ID
+            if identifier.startswith('@'):
+                chat = await context.bot.get_chat(identifier)
+            elif identifier.startswith('https://t.me/'):
+                username = identifier.replace('https://t.me/', '').split('?')[0]
+                chat = await context.bot.get_chat(f'@{username}')
+            else:
+                chat = await context.bot.get_chat(identifier)
+            
+            chat_id = str(chat.id)
+            success = force_join_manager.remove_force_join(chat_id)
+        except:
+            pass
+    
+    if success:
+        current_groups = force_join_manager.get_force_join_groups()
+        await update.message.reply_text(
+            f"✅ Successfully removed from force join list!\n\n"
+            f"Remaining groups: {len(current_groups)}/5"
+        )
+    else:
+        await update.message.reply_text(
+            "❌ Group/channel not found in force join list!\n\n"
+            "Use /removefjoin without arguments to see current list."
+        )
+
+async def myid_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send user their Telegram user ID."""
+    user_id = update.effective_user.id
+    username = update.effective_user.username or "No username"
+    first_name = update.effective_user.first_name or ""
+    
+    await update.message.reply_text(
+        f"👤 Your Telegram Information:\n\n"
+        f"🆔 User ID: `{user_id}`\n"
+        f"👤 Name: {first_name}\n"
+        f"📧 Username: @{username}\n\n"
+        f"Use this ID to configure bot admins in config.py"
+    )
+
+@admin_only
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show detailed bot statistics (admin only)."""
+    stats = stats_manager.get_stats()
+    
+    # Calculate uptime
+    start_time = datetime.fromisoformat(stats['start_time'])
+    uptime = datetime.now() - start_time
+    days = uptime.days
+    hours, remainder = divmod(uptime.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    message = f"""
+📊 **BOT STATISTICS** 【~@DrQuizRobot】
+
+👥 **Users & Groups:**
+• Total Users: {stats['total_users']}
+• Total Groups: {stats['total_groups']}
+
+📚 **Quiz Statistics:**
+• Total Quizzes Generated: {stats['total_quizzes']}
+• Total Questions Sent: {stats['total_questions']}
+
+⏱️ **Uptime:**
+• Days: {days}
+• Hours: {hours}
+• Minutes: {minutes}
+
+👨‍💼 **Admins:**
+• Total Admins: {len(admin_manager.get_all_admins())}
+
+📢 **Force Join Groups:**
+• Active: {len(force_join_manager.get_force_join_groups())}/5
+
+📅 **Started:** {start_time.strftime('%Y-%m-%d %H:%M:%S')}
+"""
+    
+    await update.message.reply_text(message)
+
+@admin_only
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Broadcast a message to all users and groups (admin only)."""
+    # Check if this is a reply to a message
+    if not update.message.reply_to_message:
+        await update.message.reply_text(
+            "❌ Please reply to a message/media you want to broadcast!\n\n"
+            "Usage: Reply to any message (text/photo/video/poll/etc.) with /broadcast"
+        )
+        return
+    
+    replied_msg = update.message.reply_to_message
+    stats = stats_manager.get_stats()
+    
+    total_users = stats['total_users']
+    total_groups = stats['total_groups']
+    total_targets = total_users + total_groups
+    
+    await update.message.reply_text(
+        f"📢 Starting broadcast...\n\n"
+        f"Targets: {total_users} users + {total_groups} groups = {total_targets} total\n\n"
+        f"This may take a few minutes..."
+    )
+    
+    success_count = 0
+    failed_count = 0
+    blocked_count = 0
+    
+    # Broadcast to all users
+    for user_id in stats['users_list']:
+        try:
+            # Forward the message
+            await replied_msg.copy(chat_id=user_id)
+            success_count += 1
+        except Exception as e:
+            error_msg = str(e).lower()
+            if 'blocked' in error_msg or 'deactivated' in error_msg:
+                blocked_count += 1
+            else:
+                failed_count += 1
+            logger.warning(f"Failed to send broadcast to user {user_id}: {e}")
+    
+    # Broadcast to all groups
+    for group_id in stats['groups_list']:
+        try:
+            await replied_msg.copy(chat_id=group_id)
+            success_count += 1
+        except Exception as e:
+            failed_count += 1
+            logger.warning(f"Failed to send broadcast to group {group_id}: {e}")
+    
+    # Send report
+    await update.message.reply_text(
+        f"✅ Broadcast Complete!\n\n"
+        f"📊 Results:\n"
+        f"✅ Successful: {success_count}\n"
+        f"❌ Failed: {failed_count}\n"
+        f"🚫 Blocked/Deleted: {blocked_count}\n"
+        f"📈 Total Attempted: {total_targets}"
+    )
+
+@admin_only
+async def promote_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Promote a user to admin (admin only)."""
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "❌ Invalid format!\n\n"
+            "Usage: /promote <user_id>\n\n"
+            "Example: /promote 123456789\n\n"
+            "Get user ID using /myid command or @userinfobot"
+        )
+        return
+    
+    try:
+        user_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ Invalid user ID! Must be a number.")
+        return
+    
+    # Try to get user info
+    try:
+        user = await context.bot.get_chat(user_id)
+        user_name = user.first_name or user.username or f"User {user_id}"
+    except:
+        user_name = f"User {user_id}"
+    
+    # Add to admins
+    if admin_manager.add_admin(user_id):
+        await update.message.reply_text(
+            f"✅ Successfully promoted to admin!\n\n"
+            f"👤 {user_name}\n"
+            f"🆔 ID: {user_id}\n\n"
+            f"Total admins: {len(admin_manager.get_all_admins())}"
+        )
+    else:
+        await update.message.reply_text(
+            f"ℹ️ User is already an admin!\n\n"
+            f"👤 {user_name}\n"
+            f"🆔 ID: {user_id}"
+        )
+
+@admin_only
+async def remove_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Remove admin privileges from a user (admin only)."""
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "❌ Invalid format!\n\n"
+            "Usage: /remove <user_id>\n\n"
+            "Example: /remove 123456789\n\n"
+            "Note: Permanent admins cannot be removed."
+        )
+        return
+    
+    try:
+        user_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ Invalid user ID! Must be a number.")
+        return
+    
+    # Try to get user info
+    try:
+        user = await context.bot.get_chat(user_id)
+        user_name = user.first_name or user.username or f"User {user_id}"
+    except:
+        user_name = f"User {user_id}"
+    
+    # Check if permanent admin
+    if admin_manager.is_permanent_admin(user_id):
+        await update.message.reply_text(
+            f"❌ Cannot remove permanent admin!\n\n"
+            f"👤 {user_name}\n"
+            f"🆔 ID: {user_id}\n\n"
+            f"Permanent admins are set in config.py"
+        )
+        return
+    
+    # Remove from admins
+    if admin_manager.remove_admin(user_id):
+        await update.message.reply_text(
+            f"✅ Successfully removed admin privileges!\n\n"
+            f"👤 {user_name}\n"
+            f"🆔 ID: {user_id}\n\n"
+            f"Remaining admins: {len(admin_manager.get_all_admins())}"
+        )
+    else:
+        await update.message.reply_text(
+            f"ℹ️ User is not an admin!\n\n"
+            f"👤 {user_name}\n"
+            f"🆔 ID: {user_id}"
+        )
+
+@admin_only
+async def adminlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """List all bot admins (admin only)."""
+    all_admins = admin_manager.get_all_admins()
+    
+    if not all_admins:
+        await update.message.reply_text("📭 No admins configured.")
+        return
+    
+    message = "👥 **BOT ADMINS LIST** 【~@DrQuizRobot】\n\n"
+    
+    for i, admin_id in enumerate(all_admins, 1):
+        is_permanent = admin_manager.is_permanent_admin(admin_id)
+        admin_type = "🔒 Permanent" if is_permanent else "👤 Dynamic"
+        
+        # Try to get admin info
+        try:
+            user = await context.bot.get_chat(admin_id)
+            name = user.first_name or "Unknown"
+            username = f"@{user.username}" if user.username else "No username"
+            
+            message += f"{i}. {admin_type}\n"
+            message += f"   👤 Name: {name}\n"
+            message += f"   📧 Username: {username}\n"
+            message += f"   🆔 ID: `{admin_id}`\n\n"
+        except Exception as e:
+            message += f"{i}. {admin_type}\n"
+            message += f"   🆔 ID: `{admin_id}`\n"
+            message += f"   ⚠️ Cannot fetch info\n\n"
+    
+    message += f"📊 Total Admins: {len(all_admins)}"
+    
+    await update.message.reply_text(message)
+
+async def check_membership_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle callback when user clicks 'I Joined - Check Again' button."""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = update.effective_user.id
+    
+    # Check membership
+    is_member, not_joined = await force_join_manager.check_user_membership(user_id, context)
+    
+    if is_member:
+        await query.edit_message_text(
+            "✅ Great! You've joined all required groups/channels.\n\n"
+            "You can now use the bot. Send /start to begin! 🚀"
+        )
+    else:
+        message = "⚠️ You still need to join the following groups/channels:\n\n"
+        for group in not_joined:
+            message += f"📢 {group['title']}\n"
+        
+        keyboard = force_join_manager.create_join_buttons(not_joined)
+        await query.edit_message_text(message, reply_markup=keyboard)
+
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by updates."""
     logger.error(f"Update {update} caused error {context.error}")
@@ -168,9 +665,18 @@ def main():
     """Start the bot."""
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
+    # User commands
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("cquiz", create_quiz))
+    application.add_handler(CommandHandler("myid", myid_command))
+    
+    # Admin commands
+    application.add_handler(CommandHandler("fjoin", fjoin_command))
+    application.add_handler(CommandHandler("removefjoin", removefjoin_command))
+    
+    # Callback query handler
+    application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
     
     application.add_error_handler(error_handler)
     
