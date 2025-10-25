@@ -8,6 +8,7 @@ from bot.quiz_generator import QuizGenerator
 from bot.force_join import force_join_manager
 from bot.stats_manager import stats_manager
 from bot.admin_manager import AdminManager
+from bot.welcome_manager import welcome_manager
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -27,6 +28,30 @@ def admin_only(func):
             await update.message.reply_text("❌ This command is only available for admins.")
             return
         return await func(update, context)
+    return wrapper
+
+def bot_or_group_admin_only(func):
+    """Decorator to restrict command to bot admins or group admins only."""
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        chat = update.effective_chat
+        
+        # Check if user is bot admin
+        if admin_manager.is_admin(user_id):
+            return await func(update, context)
+        
+        # Check if command is in a group and user is group admin
+        if chat.type in ['group', 'supergroup']:
+            try:
+                member = await context.bot.get_chat_member(chat.id, user_id)
+                if member.status in ['creator', 'administrator']:
+                    return await func(update, context)
+            except:
+                pass
+        
+        await update.message.reply_text("❌ This command is only available for bot admins or group admins.")
+        return
     return wrapper
 
 def check_force_join(func):
@@ -634,6 +659,83 @@ async def adminlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(message)
 
+@bot_or_group_admin_only
+async def welcomeon_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Enable welcome messages in a group (bot admin or group admin only)."""
+    chat = update.effective_chat
+    
+    # Check if command is in a group
+    if chat.type not in ['group', 'supergroup']:
+        await update.message.reply_text(
+            "❌ This command can only be used in groups!"
+        )
+        return
+    
+    # Enable welcome for this group
+    if welcome_manager.enable_welcome(chat.id):
+        await update.message.reply_text(
+            f"✅ Welcome messages enabled for {chat.title}!\n\n"
+            f"New members will be greeted with a warm welcome and shayari. 🎉"
+        )
+    else:
+        await update.message.reply_text(
+            f"ℹ️ Welcome messages are already enabled for {chat.title}."
+        )
+
+@bot_or_group_admin_only
+async def welcomeoff_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Disable welcome messages in a group (bot admin or group admin only)."""
+    chat = update.effective_chat
+    
+    # Check if command is in a group
+    if chat.type not in ['group', 'supergroup']:
+        await update.message.reply_text(
+            "❌ This command can only be used in groups!"
+        )
+        return
+    
+    # Disable welcome for this group
+    if welcome_manager.disable_welcome(chat.id):
+        await update.message.reply_text(
+            f"✅ Welcome messages disabled for {chat.title}!\n\n"
+            f"New members will not receive welcome messages."
+        )
+    else:
+        await update.message.reply_text(
+            f"ℹ️ Welcome messages are already disabled for {chat.title}."
+        )
+
+async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Welcome new members to the group."""
+    chat = update.effective_chat
+    
+    # Check if welcome is enabled for this group
+    if not welcome_manager.is_welcome_enabled(chat.id):
+        return
+    
+    # Get new members
+    new_members = update.message.new_chat_members
+    
+    for member in new_members:
+        # Skip if the new member is a bot
+        if member.is_bot:
+            continue
+        
+        # Get member name
+        member_name = member.first_name or member.username or "Friend"
+        
+        # Get random shayari
+        shayari = welcome_manager.get_random_shayari()
+        
+        # Create welcome message
+        welcome_message = (
+            f"🎉 Welcome {member_name} to {chat.title}! 🎉\n\n"
+            f"{shayari}\n\n"
+            f"【~@DrQuizRobot】"
+        )
+        
+        await update.message.reply_text(welcome_message)
+
 async def check_membership_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle callback when user clicks 'I Joined - Check Again' button."""
     query = update.callback_query
@@ -679,6 +781,13 @@ def main():
     application.add_handler(CommandHandler("promote", promote_command))
     application.add_handler(CommandHandler("remove", remove_admin_command))
     application.add_handler(CommandHandler("adminlist", adminlist_command))
+    
+    # Welcome commands (bot admin or group admin)
+    application.add_handler(CommandHandler("welcomeon", welcomeon_command))
+    application.add_handler(CommandHandler("welcomeoff", welcomeoff_command))
+    
+    # New member handler
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
     
     # Callback query handler
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
