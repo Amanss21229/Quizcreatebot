@@ -119,9 +119,12 @@ class AnonymousAdminVerifier:
         
         try:
             # Verify user is actually an admin in that group
+            logger.info(f"Checking admin status for user {user_id} in chat {chat_id}")
             member = await bot.get_chat_member(chat_id, user_id)
+            logger.info(f"User {user_id} has status: {member.status} in chat {chat_id}")
             
             if member.status not in ['creator', 'administrator']:
+                logger.warning(f"User {user_id} is not an admin. Status: {member.status}")
                 await query.answer("❌ You are not an admin in this group!", show_alert=True)
                 del self.pending_commands[token]
                 return False
