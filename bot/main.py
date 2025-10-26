@@ -116,32 +116,71 @@ def check_force_join(func):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a welcome message when the command /start is issued."""
     welcome_message = """
-🎓 Welcome to NEET Quizzing Bot! 【~@DrQuizRobot】
+╔══════════════════════════════════════╗
+║                                      ║
+║   🌟 **Welcome to Dr. Quiz Robot!** 🌟   ║
+║                                      ║
+╚══════════════════════════════════════╝
 
-I generate NEET UG Previous Year Questions (PYQs) and exam-standard MCQs from NCERT Class 11th and 12th textbooks.
+🎯 **Your Personal NEET Preparation Partner!**
 
-📚 How to use:
-/cquiz [chapter name] [number of questions]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📖 Examples:
-/cquiz Human Physiology 5
-/cquiz Thermodynamics 10
-/cquiz Cell Biology 15
+🌅 **Start Your Day Right!**
+Wake up to motivating **Good Morning wishes** that keep you energized and focused on your NEET goals! 💪
 
-✅ Features:
-• NEET UG PYQs (2015-2024)
-• NEET-standard clickable quiz polls
-• Questions from official NEET exam papers
-• Interactive quiz format with instant feedback
-• 4 options per question
-• 1-20 questions per request
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📝 Subjects Covered:
-• Biology (Class 11 & 12)
-• Physics (Class 11 & 12)
-• Chemistry (Class 11 & 12)
+📚 **Smart Quiz System**
 
-Start creating your NEET PYQ quiz now! 🚀
+🔹 **Instant Quizzes** - Create custom quizzes anytime
+   • 1-20 questions per session
+   • Any NCERT chapter from Class 11 & 12
+   
+🔹 **Timer Challenges** - Test yourself under pressure!
+   • 20 questions with 45-second countdown ⏱️
+   • Real exam simulation
+   • Leaderboard rankings 🏆
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎓 **Premium Question Bank**
+
+✅ **NEET Previous Year Questions (2015-2024)**
+✅ **NCERT-based MCQs** - Physics, Chemistry, Biology
+✅ **Detailed Explanations** for every answer
+✅ **Interactive Quiz Polls** - Click & learn!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 **Ask Anything, Anytime!**
+
+Got doubts? Use **/explain** command to get:
+   • Detailed AI-powered explanations 🤖
+   • Step-by-step solutions 📝
+   • Concept clarity on any topic 💭
+   
+Reply to any quiz with /explain for instant answers!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👋 **Group Features**
+
+🎉 Auto **welcome messages** for new members
+📢 Keep your study group active & engaged
+🤝 Perfect for collaborative learning
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 **Multiple Languages** | 🎯 **NEET Pattern** | ⚡ **Instant Results**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 **Need Help?** Type /help to explore all commands
+
+🚀 **Ready to ace NEET?** Start your first quiz now!
+
+【~@DrQuizRobot】
 """
     
     keyboard = [
