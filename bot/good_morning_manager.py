@@ -36,6 +36,16 @@ class GoodMorningManager:
             "Sometimes we're tested not to show our weaknesses, but to discover our strengths.",
             "The key to success is to focus on goals, not obstacles.",
             "Dream it. Believe it. Build it.",
+            "You are never too old to set another goal or to dream a new dream.",
+            "Opportunities don't happen, you create them.",
+            "Don't limit your challenges. Challenge your limits.",
+            "If you want to achieve greatness, stop asking for permission.",
+            "A goal is a dream with a deadline.",
+            "The only person you are destined to become is the person you decide to be.",
+            "You don't have to be great to start, but you have to start to be great.",
+            "Success is the sum of small efforts repeated day in and day out.",
+            "Challenges are what make life interesting and overcoming them is what makes life meaningful.",
+            "Your passion is waiting for your courage to catch up.",
         ]
         
         self.hindi_quotes = [
@@ -49,6 +59,11 @@ class GoodMorningManager:
             "असफलता सफलता की पहली सीढ़ी है।",
             "जो आज की कीमत समझता है, वही कल का निर्माता बनता है।",
             "सपने वो नहीं जो नींद में आएं, सपने वो हैं जो नींद उड़ा दें।",
+            "कर्म करो, फल की चिंता मत करो।",
+            "संघर्ष ही जीवन है, हार मानना मौत है।",
+            "मंजिल उन्हीं को मिलती है, जिनके सपनों में जान होती है।",
+            "जीत उसी की होती है जो हारकर भी नहीं हारता।",
+            "अपने लक्ष्य को पाने के लिए कड़ी मेहनत करो।",
         ]
     
     def get_random_quote(self, language: str = 'english') -> str:
