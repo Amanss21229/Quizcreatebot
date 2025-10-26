@@ -30,10 +30,15 @@ ADMIN_USER_IDS = [
 ]
 
 # Load admin IDs from environment variable if available (for production)
-import os
-if os.getenv('ADMIN_USER_IDS'):
+admin_ids_env = os.getenv('ADMIN_USER_IDS')
+if admin_ids_env:
     try:
-        env_admin_ids = [int(id.strip()) for id in os.getenv('ADMIN_USER_IDS').split(',')]
+        env_admin_ids = [int(id.strip()) for id in admin_ids_env.split(',')]
         ADMIN_USER_IDS.extend(env_admin_ids)
     except:
         pass
+
+# NEET scoring pattern
+NEET_CORRECT_MARKS = 4
+NEET_WRONG_MARKS = -1
+NEET_UNATTEMPTED_MARKS = 0
