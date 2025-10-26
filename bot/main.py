@@ -149,20 +149,27 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = """
 📖 AUTO QUIZ CREATE BOT - Help
 
-Command Format:
-/cquiz [chapter name] [number of questions]
+📝 Quiz Commands:
+/cquiz [chapter] [num] - Create instant quiz
+/quiz [chapter] - Start 20-question timer quiz (NEET pattern)
+/end - End timer quiz early & show leaderboard
+/stopquiz - Stop quiz without leaderboard
 
 Examples:
 • /cquiz Human Physiology 5
-• /cquiz Thermodynamics 10
-• /cquiz Biomolecules 8
-• /cquiz Chemical Bonding 12
+• /quiz Thermodynamics
+• /end (during timer quiz)
+
+🎯 NEET Scoring Pattern:
+• Correct Answer: +4 marks
+• Wrong Answer: -1 mark
+• Not Attempted: 0 marks
 
 Valid Inputs:
-• Chapter: Any NCERT Class 11/12 chapter (Biology, Physics, Chemistry)
-• Questions: 1-20 questions per quiz
+• Chapter: Any NCERT Class 11/12 chapter
+• Questions: 1-20 per quiz
 
-Need help? Just type /start to see examples!
+Need help? Type /start to see examples!
 """
     await update.message.reply_text(help_text)
 
@@ -418,15 +425,19 @@ async def finalize_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE, chat
         if not session:
             return
         
+        questions_answered = session.current_question_index
+        if session.current_poll_id:
+            questions_answered += 1
+        
         await context.bot.send_message(
             chat_id=chat_id,
-            text=generate_quiz_complete_message(20)
+            text=generate_quiz_complete_message(questions_answered)
         )
         
         await asyncio.sleep(2)
         
         leaderboard_data = session.get_leaderboard_data()
-        leaderboard_message = generate_leaderboard_message(leaderboard_data, session.chapter, 20)
+        leaderboard_message = generate_leaderboard_message(leaderboard_data, session.chapter, questions_answered)
         
         await context.bot.send_message(
             chat_id=chat_id,
@@ -436,7 +447,7 @@ async def finalize_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE, chat
         
         logger.info(f"Quiz completed for chat {chat_id}, participants: {len(leaderboard_data)}")
         
-        stats_manager.record_quiz(20)
+        stats_manager.record_quiz(questions_answered)
         
         quiz_session_manager.end_session(chat_id)
         
@@ -507,6 +518,31 @@ async def stop_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "You can start a new quiz anytime with /quiz [chapter name]\n\n"
         "【~@DrQuizRobot】"
     )
+
+@check_force_join
+async def end_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """End the timer quiz and show leaderboard with current progress."""
+    chat_id = update.effective_chat.id
+    
+    session = quiz_session_manager.get_session(chat_id)
+    
+    if not session or not session.is_active:
+        await update.message.reply_text(
+            "❌ No active timer quiz in this chat.\n\n"
+            "Use /quiz to start a timer quiz.\n\n"
+            "【~@DrQuizRobot】"
+        )
+        return
+    
+    if session.auto_advance_task and not session.auto_advance_task.done():
+        session.auto_advance_task.cancel()
+        logger.info(f"Cancelled auto-advance task for chat {chat_id}")
+    
+    questions_answered = session.current_question_index
+    if session.current_poll_id:
+        questions_answered += 1
+    
+    await finalize_quiz(update, context, chat_id)
 
 @admin_only
 async def fjoin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1312,6 +1348,7 @@ def main():
     application.add_handler(CommandHandler("cquiz", create_quiz))
     application.add_handler(CommandHandler("quiz", timed_quiz_command))
     application.add_handler(CommandHandler("stopquiz", stop_quiz_command))
+    application.add_handler(CommandHandler("end", end_quiz_command))
     application.add_handler(CommandHandler("myid", myid_command))
     
     # Admin commands
