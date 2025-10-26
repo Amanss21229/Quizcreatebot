@@ -273,6 +273,7 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Handle the /quiz command to start a timed quiz session with 20 questions."""
     try:
         chat_id = update.effective_chat.id
+        is_private_chat = update.effective_chat.type == 'private'
         
         if quiz_session_manager.has_active_session(chat_id):
             await update.message.reply_text(
@@ -297,17 +298,19 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         language = language_manager.get_language(chat_id)
         
+        quiz_mode = "instant advance" if is_private_chat else "timer-based"
         await update.message.reply_text(
             f"🎯 Starting Timed Quiz Session!\n\n"
             f"📚 Chapter: {chapter}\n"
             f"📝 Questions: 20\n"
             f"⏱️ Time per question: 45 seconds\n"
+            f"{'⚡ Instant advance after answering!' if is_private_chat else '🔄 Auto-advance after timer expires!'}\n"
             f"🏆 Leaderboard at the end!\n\n"
             f"⚡ Generating NEET PYQ & NCERT questions...\n\n"
             f"【~@DrQuizRobot】"
         )
         
-        logger.info(f"Generating 20 questions for timed quiz: chapter='{chapter}', language={language}")
+        logger.info(f"Generating 20 questions for timed quiz: chapter='{chapter}', language={language}, mode={quiz_mode}")
         questions = quiz_gen.generate_quiz(chapter, 20, language)
         
         if not questions or len(questions) < 20:
@@ -317,7 +320,7 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             return
         
-        session = quiz_session_manager.create_session(chat_id, chapter, questions)
+        session = quiz_session_manager.create_session(chat_id, chapter, questions, is_private_chat)
         
         await update.message.reply_text(
             "╔═══════════════════════════════╗\n"
@@ -380,7 +383,8 @@ async def send_next_question(update: Update, context: ContextTypes.DEFAULT_TYPE,
         session.start_question(message.poll.id)
         logger.info(f"Sent question {question_num}/20 for quiz in chat {chat_id}, poll_id={message.poll.id}")
         
-        asyncio.create_task(auto_advance_question(update, context, chat_id, 47))
+        task = asyncio.create_task(auto_advance_question(update, context, chat_id, 47))
+        session.auto_advance_task = task
         
     except Exception as e:
         logger.error(f"Error sending next question: {e}", exc_info=True)
@@ -468,6 +472,18 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
         session.record_answer(user.id, user_name, option_id, time_taken)
         
         logger.info(f"Recorded answer from {user_name} (ID: {user.id}) for poll {poll_id}, option: {option_id}, time: {time_taken:.2f}s")
+        
+        if session.is_private_chat:
+            if session.auto_advance_task and not session.auto_advance_task.done():
+                session.auto_advance_task.cancel()
+                logger.info(f"Cancelled auto-advance for private chat {session.chat_id}, advancing immediately")
+            
+            has_more = session.next_question()
+            
+            if has_more:
+                await send_next_question(update, context, session.chat_id)
+            else:
+                await finalize_quiz(update, context, session.chat_id)
         
     except Exception as e:
         logger.error(f"Error handling poll answer: {e}", exc_info=True)

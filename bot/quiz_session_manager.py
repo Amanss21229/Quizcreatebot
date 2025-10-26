@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class QuizSession:
-    def __init__(self, chat_id: int, chapter: str, questions: List[Dict]):
+    def __init__(self, chat_id: int, chapter: str, questions: List[Dict], is_private_chat: bool = False):
         self.chat_id = chat_id
         self.chapter = chapter
         self.questions = questions
@@ -18,6 +18,8 @@ class QuizSession:
         self.question_start_time = None
         self.current_poll_id = None
         self.is_active = True
+        self.is_private_chat = is_private_chat
+        self.auto_advance_task = None
         
     def start_question(self, poll_id: str):
         self.question_start_time = time.time()
@@ -122,13 +124,13 @@ class QuizSessionManager:
     def __init__(self):
         self.active_sessions: Dict[int, QuizSession] = {}
         
-    def create_session(self, chat_id: int, chapter: str, questions: List[Dict]) -> QuizSession:
+    def create_session(self, chat_id: int, chapter: str, questions: List[Dict], is_private_chat: bool = False) -> QuizSession:
         if chat_id in self.active_sessions:
             self.active_sessions[chat_id].is_active = False
         
-        session = QuizSession(chat_id, chapter, questions)
+        session = QuizSession(chat_id, chapter, questions, is_private_chat)
         self.active_sessions[chat_id] = session
-        logger.info(f"Created quiz session for chat {chat_id} with {len(questions)} questions")
+        logger.info(f"Created quiz session for chat {chat_id} (private={is_private_chat}) with {len(questions)} questions")
         return session
     
     def get_session(self, chat_id: int) -> Optional[QuizSession]:
