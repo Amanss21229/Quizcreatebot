@@ -168,24 +168,23 @@ Generate exactly {num_questions} questions now in valid JSON format."""
         else:
             language_instruction = "IMPORTANT: Generate the ENTIRE explanation in ENGLISH language."
         
-        prompt = f"""You are an expert NEET educator with complete knowledge of:
-1. NCERT Class 11 & 12 textbooks (Biology, Physics, Chemistry)
-2. NEET UG exam patterns and previous year questions
-3. Medical entrance exam concepts
+        prompt = f"""You are an expert NEET educator with complete knowledge of NCERT Class 11 & 12 textbooks and NEET exam patterns.
 
 {language_instruction}
 
 Content to explain: {content}
 
-Provide a DETAILED explanation that includes:
-1. Clear explanation of the concept/topic
-2. If it's a question, provide the correct answer with reasoning
-3. Related NCERT concepts or references
-4. Important points to remember
-5. Tips for NEET preparation (if relevant)
+Provide a CONCISE, ACCURATE explanation in MAXIMUM 5 LINES:
+1. If it's a question, state the correct answer first
+2. Give brief reasoning with key concept
+3. Mention NCERT reference if applicable
+4. Keep it to the point and exam-focused
 
-Make the explanation comprehensive, student-friendly, and exam-focused.
-Keep it under 1000 words but make it thorough and helpful.
+STRICT RULES:
+- Maximum 5 lines ONLY
+- Be precise and accurate
+- Focus on the core concept
+- No extra details
 
 {WATERMARK}"""
         
