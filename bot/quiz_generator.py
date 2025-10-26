@@ -149,3 +149,52 @@ Generate exactly {num_questions} questions now in valid JSON format."""
             formatted += f"{option_labels[i]}) {option}\n"
         
         return formatted
+    
+    def generate_explanation(self, content: str, content_type: str = 'text', language: str = 'english') -> str:
+        """
+        Generate a detailed explanation for any question, topic, or content.
+        
+        Args:
+            content: The question, text, or topic to explain
+            content_type: Type of content ('text', 'quiz', 'poll', 'image_description')
+            language: Language for explanation ('hindi' or 'english')
+        
+        Returns:
+            Detailed explanation with answer (if applicable)
+        """
+        language_instruction = ""
+        if language == 'hindi':
+            language_instruction = "IMPORTANT: Generate the ENTIRE explanation in HINDI language (Devanagari script). Use proper Hindi scientific terminology."
+        else:
+            language_instruction = "IMPORTANT: Generate the ENTIRE explanation in ENGLISH language."
+        
+        prompt = f"""You are an expert NEET educator with complete knowledge of:
+1. NCERT Class 11 & 12 textbooks (Biology, Physics, Chemistry)
+2. NEET UG exam patterns and previous year questions
+3. Medical entrance exam concepts
+
+{language_instruction}
+
+Content to explain: {content}
+
+Provide a DETAILED explanation that includes:
+1. Clear explanation of the concept/topic
+2. If it's a question, provide the correct answer with reasoning
+3. Related NCERT concepts or references
+4. Important points to remember
+5. Tips for NEET preparation (if relevant)
+
+Make the explanation comprehensive, student-friendly, and exam-focused.
+Keep it under 1000 words but make it thorough and helpful.
+
+{WATERMARK}"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            explanation = response.text.strip()
+            return f"{explanation}\n\n{WATERMARK}"
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error generating explanation: {e}")
+            raise
