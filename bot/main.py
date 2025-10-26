@@ -47,6 +47,17 @@ def bot_or_group_admin_only(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat = update.effective_chat
         
+        # Check if this is a verified anonymous admin execution
+        # If so, use the verified user instead of checking again
+        if context.user_data.get('verified_user_id'):
+            user_id = context.user_data['verified_user_id']
+            # Clear the verification data after use
+            context.user_data.pop('verified_user_id', None)
+            context.user_data.pop('verified_user', None)
+            
+            # User is already verified as admin, execute the command
+            return await func(update, context)
+        
         # Check if this is an anonymous admin (must check before accessing effective_user)
         if anonymous_verifier.is_anonymous_admin(update):
             # Send verification button

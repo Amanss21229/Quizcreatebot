@@ -137,12 +137,21 @@ class AnonymousAdminVerifier:
             context = pending['context']
             
             # Update the effective user to the verified user (from callback query)
-            # This is a workaround to make the command think it came from the verified user
+            # We need to patch the update object to include the real user info
+            # Since anonymous admins send messages as the group, we verify them separately
             if update.message and query.from_user:
-                update.message._unfreeze()
-                update._effective_user = query.from_user
-                update.message.from_user = query.from_user
-                update.message._freeze()
+                # Store the verified user info in context for the command to use
+                context.user_data['verified_user_id'] = user_id
+                context.user_data['verified_user'] = query.from_user
+                
+                # Monkey-patch the effective_user for this update
+                # This is safe because we've already verified admin status
+                try:
+                    # Try to set effective_user directly (works in some versions)
+                    object.__setattr__(update, '_effective_user', query.from_user)
+                except (AttributeError, TypeError):
+                    # If that fails, the command can check context.user_data
+                    pass
             
             # Execute the command
             await command_handler(update, context)
