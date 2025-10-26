@@ -409,6 +409,54 @@ Let's connect with Aman Directly, privately and securely!
     await update.message.reply_text(developer_message, reply_markup=reply_markup)
 
 @check_force_join
+async def donate_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send donation message with button to donation bot."""
+    user_first_name = update.effective_user.first_name
+    
+    donate_message = f"""╔═════════════════════════════════════╗
+║  💝 𝗦𝗨𝗣𝗣𝗢𝗥𝗧 𝗢𝗨𝗥 𝗠𝗜𝗦𝗦𝗜𝗢𝗡 💝  ║
+╚═════════════════════════════════════╝
+
+🌟 Hey {user_first_name}! ✨
+
+🎯 Your Support Makes Dreams Come True!
+
+💡 Every donation helps thousands of students:
+✅ Access FREE quality quiz questions daily
+✅ Improve their preparation with instant scoring  
+✅ Compete with peers in real-time leaderboards
+✅ Get closer to their Dream COLLEGE! 🏥
+
+🚀 Why Your Support Matters:
+🔥 Server hosting & maintenance costs
+⚡ Adding new features & improvements  
+📚 Creating more educational content
+🛡️ Ensuring 100% uptime for students
+
+💖 We've Created Something Special For You:
+
+🤖 Secure Donation Bot: @DrQuizDonationRobot
+🔒 100% Safe & Transparent transactions
+🎁 Special Recognition for our supporters  
+📊 Impact Reports - See how you're helping students!
+
+════════════════════════════════════════
+
+🌈 "Education is the most powerful weapon which you can use to change the world" - Nelson Mandela
+
+💝 Your kindness today shapes a Student's journey tomorrow!
+
+🙏 Thank you for believing in education and our mission!
+"""
+    
+    keyboard = [
+        [InlineKeyboardButton("💝 Donate Us", url="https://t.me/DrQuizDonationRobot")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(donate_message, reply_markup=reply_markup)
+
+@check_force_join
 async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /cquiz command to generate a quiz."""
     chat_id = update.effective_chat.id
@@ -1994,6 +2042,7 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("botsupport", botsupport_command))
     application.add_handler(CommandHandler("developer", developer_command))
+    application.add_handler(CommandHandler("donate", donate_command))
     application.add_handler(CommandHandler("cquiz", create_quiz))
     application.add_handler(CommandHandler("quiz", timed_quiz_command))
     application.add_handler(CommandHandler("stopquiz", stop_quiz_command))
