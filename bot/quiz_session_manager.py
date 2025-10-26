@@ -3,6 +3,7 @@ import time
 from typing import Dict, List, Optional
 from datetime import datetime
 import logging
+from bot.config import NEET_CORRECT_MARKS, NEET_WRONG_MARKS, NEET_UNATTEMPTED_MARKS
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +50,10 @@ class QuizSession:
             
             if old_answer['is_correct']:
                 participant['correct_answers'] -= 1
-                participant['total_score'] -= 1
+                participant['total_score'] -= NEET_CORRECT_MARKS
             else:
                 participant['wrong_answers'] -= 1
+                participant['total_score'] -= NEET_WRONG_MARKS
             
             participant['total_time'] -= old_answer['time_taken']
         
@@ -63,9 +65,10 @@ class QuizSession:
         
         if is_correct:
             participant['correct_answers'] += 1
-            participant['total_score'] += 1
+            participant['total_score'] += NEET_CORRECT_MARKS
         else:
             participant['wrong_answers'] += 1
+            participant['total_score'] += NEET_WRONG_MARKS
         
         participant['total_time'] += time_taken
         
