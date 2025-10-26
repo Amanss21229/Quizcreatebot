@@ -43,44 +43,68 @@ class QuizGenerator:
         else:
             language_instruction = "\n\nIMPORTANT: Generate ALL questions, options, and explanations in ENGLISH language."
         
-        return f"""You are an expert NEET (National Eligibility cum Entrance Test - UG) medical entrance exam question creator with access to NEET Previous Year Questions (PYQs) database.
+        return f"""You are an expert NEET (National Eligibility cum Entrance Test - UG) medical entrance exam question creator with complete access to:
+1. NEET Previous Year Questions (PYQs) database (2015-2024)
+2. Complete NCERT Class 11 & 12 textbooks (word-by-word)
 
 Generate exactly {num_questions} Multiple Choice Questions (MCQs) for the chapter: "{chapter}" from NCERT Class 11th or 12th.
 {language_instruction}
 
-CRITICAL REQUIREMENTS:
-1. MUST use ACTUAL NEET UG Previous Year Questions (PYQs) from 2015-2024
-2. Questions MUST be from official NEET UG exam papers or NEET-standard test series
-3. Each question must be NEET-difficulty level (medical entrance exam standard)
-4. Cover Biology, Physics, or Chemistry topics from NCERT Class 11 & 12
-5. Each question must have EXACTLY 4 options
-6. Questions should test conceptual understanding and application
-7. Include year information if it's a PYQ (e.g., "NEET 2023" or "NEET 2023" in Hindi)
+CRITICAL REQUIREMENTS - FOLLOW STRICTLY:
+
+**For Biology Chapters:**
+- 50% questions MUST be EXACT LINES from NCERT textbooks (word-to-word from the book)
+- 50% questions MUST be NEET UG Previous Year Questions (PYQs) from 2015-2024
+- NCERT questions should use the EXACT sentences/statements from NCERT books
+- Example NCERT question: "According to NCERT, which of the following correctly describes mitochondria?" (then use exact NCERT book text)
+
+**For Physics/Chemistry Chapters:**
+- 100% questions MUST be ACTUAL NEET UG PYQs from 2015-2024
+- Questions MUST be from official NEET UG exam papers
+
+**General Requirements:**
+1. Each question must have EXACTLY 4 options
+2. Each question must be NEET-difficulty level (medical entrance exam standard)
+3. Questions should test conceptual understanding and application
+4. Include year information for PYQs (e.g., "NEET 2023", "NEET 2020")
+5. For NCERT-based questions, mention "NCERT" in the question
 
 Output format (JSON array):
 [
   {{
-    "question": "Which of the following is the powerhouse of the cell? (NEET 2019)",
+    "question": "According to NCERT, mitochondria are known as the powerhouse of the cell because they:",
     "options": [
-      "Nucleus",
-      "Mitochondria",
-      "Ribosome",
-      "Golgi apparatus"
+      "Store genetic information",
+      "Produce ATP through cellular respiration",
+      "Synthesize proteins",
+      "Control cell division"
     ],
     "correct_answer": 1,
-    "explanation": "Mitochondria is called the powerhouse of the cell as it produces ATP through cellular respiration."
+    "explanation": "NCERT states that mitochondria produce ATP through cellular respiration, hence called powerhouse of the cell."
+  }},
+  {{
+    "question": "Which enzyme is responsible for unwinding the DNA double helix during replication? (NEET 2022)",
+    "options": [
+      "DNA polymerase",
+      "Helicase",
+      "Primase",
+      "Ligase"
+    ],
+    "correct_answer": 1,
+    "explanation": "Helicase unwinds the DNA double helix by breaking hydrogen bonds between base pairs."
   }}
 ]
 
 STRICT FORMATTING RULES:
 - correct_answer is the index (0-3) of the correct option
 - Question text must be clear and unambiguous
-- Options must be concise (preferably under 50 characters each)
+- Options must be concise (under 60 characters each)
 - Each option should be a complete standalone answer
-- Ensure scientific accuracy and proper terminology
-- Prioritize questions from NEET PYQs and official sources
+- Ensure scientific accuracy using NCERT terminology
+- For Biology: MIX NCERT exact-line questions WITH NEET PYQs (50-50 ratio)
+- For Physics/Chemistry: ONLY NEET PYQs
 
-Generate exactly {num_questions} NEET PYQ-based questions now in valid JSON format."""
+Generate exactly {num_questions} questions now in valid JSON format."""
     
     def _parse_response(self, response_text: str, expected_count: int) -> List[Dict]:
         """Parse Gemini's response and extract quiz questions."""

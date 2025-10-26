@@ -1,9 +1,11 @@
 import logging
 import random
+import asyncio
+import time
 from functools import wraps
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, PollAnswerHandler, filters, ContextTypes
 from bot.config import TELEGRAM_BOT_TOKEN, MIN_QUESTIONS, MAX_QUESTIONS, ADMIN_USER_IDS
 from bot.quiz_generator import QuizGenerator
 from bot.force_join import force_join_manager
@@ -14,6 +16,8 @@ from bot.language_manager import language_manager
 from bot.song_lyrics import get_personalized_message_template
 from bot.tagall_manager import tagall_manager
 from bot.anonymous_verifier import anonymous_verifier
+from bot.quiz_session_manager import quiz_session_manager
+from bot.leaderboard_generator import generate_leaderboard_message, generate_quiz_complete_message
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -263,6 +267,230 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ An error occurred while generating the quiz. Please try again later."
         )
+
+@check_force_join
+async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle the /quiz command to start a timed quiz session with 20 questions."""
+    try:
+        chat_id = update.effective_chat.id
+        
+        if quiz_session_manager.has_active_session(chat_id):
+            await update.message.reply_text(
+                "⚠️ A quiz is already running in this chat!\n\n"
+                "Please wait for it to finish or use /stopquiz to cancel it.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        if not context.args or len(context.args) < 1:
+            await update.message.reply_text(
+                "❌ Invalid format!\n\n"
+                "Usage: /quiz [chapter name]\n\n"
+                "Example: /quiz Human Physiology\n"
+                "Example: /quiz Thermodynamics\n\n"
+                "This will start a 20-question timed quiz with 45 seconds per question.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        chapter = ' '.join(context.args)
+        
+        language = language_manager.get_language(chat_id)
+        
+        await update.message.reply_text(
+            f"🎯 Starting Timed Quiz Session!\n\n"
+            f"📚 Chapter: {chapter}\n"
+            f"📝 Questions: 20\n"
+            f"⏱️ Time per question: 45 seconds\n"
+            f"🏆 Leaderboard at the end!\n\n"
+            f"⚡ Generating NEET PYQ & NCERT questions...\n\n"
+            f"【~@DrQuizRobot】"
+        )
+        
+        logger.info(f"Generating 20 questions for timed quiz: chapter='{chapter}', language={language}")
+        questions = quiz_gen.generate_quiz(chapter, 20, language)
+        
+        if not questions or len(questions) < 20:
+            await update.message.reply_text(
+                "❌ Failed to generate 20 questions. Please try again with a different chapter name.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        session = quiz_session_manager.create_session(chat_id, chapter, questions)
+        
+        await update.message.reply_text(
+            "╔═══════════════════════════════╗\n"
+            "║   🎮 **QUIZ STARTING NOW!** 🎮   ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "📢 Answer each question within 45 seconds!\n"
+            "🔄 Questions will auto-advance after timer expires\n"
+            "🏆 Your score will be tracked for the leaderboard!\n\n"
+            "Good luck! 🍀\n\n"
+            "【~@DrQuizRobot】"
+        )
+        
+        await asyncio.sleep(2)
+        
+        await send_next_question(update, context, chat_id)
+        
+    except Exception as e:
+        logger.error(f"Error in timed_quiz_command: {e}", exc_info=True)
+        await update.message.reply_text(
+            "❌ An error occurred while starting the quiz. Please try again later.\n\n"
+            "【~@DrQuizRobot】"
+        )
+        if quiz_session_manager.has_active_session(update.effective_chat.id):
+            quiz_session_manager.end_session(update.effective_chat.id)
+
+async def send_next_question(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+    """Send the next question in the quiz session."""
+    try:
+        session = quiz_session_manager.get_session(chat_id)
+        
+        if not session or session.is_finished():
+            return
+        
+        question_data = session.get_current_question()
+        
+        if not question_data:
+            await finalize_quiz(update, context, chat_id)
+            return
+        
+        question_num = session.current_question_index + 1
+        
+        question_text = f"Q{question_num}/20: {question_data['question']}\n\n【~@DrQuizRobot】"
+        
+        if len(question_text) > 300:
+            question_text = f"Q{question_num}/20: {question_data['question'][:250]}...\n\n【~@DrQuizRobot】"
+        
+        options = [str(opt).strip() for opt in question_data['options'][:4]]
+        
+        message = await context.bot.send_poll(
+            chat_id=chat_id,
+            question=question_text,
+            options=options,
+            type='quiz',
+            correct_option_id=int(question_data['correct_answer']),
+            is_anonymous=False,
+            open_period=45,
+            explanation=question_data.get('explanation', '')[:200] if question_data.get('explanation') else None
+        )
+        
+        session.start_question(message.poll.id)
+        logger.info(f"Sent question {question_num}/20 for quiz in chat {chat_id}, poll_id={message.poll.id}")
+        
+        asyncio.create_task(auto_advance_question(update, context, chat_id, 47))
+        
+    except Exception as e:
+        logger.error(f"Error sending next question: {e}", exc_info=True)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ Error sending question. Ending quiz.\n\n【~@DrQuizRobot】"
+        )
+        quiz_session_manager.end_session(chat_id)
+
+async def auto_advance_question(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int, delay: int):
+    """Auto-advance to next question after delay."""
+    await asyncio.sleep(delay)
+    
+    session = quiz_session_manager.get_session(chat_id)
+    
+    if not session or not session.is_active:
+        return
+    
+    has_more = session.next_question()
+    
+    if has_more:
+        await send_next_question(update, context, chat_id)
+    else:
+        await finalize_quiz(update, context, chat_id)
+
+async def finalize_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+    """Finalize quiz and send leaderboard."""
+    try:
+        session = quiz_session_manager.get_session(chat_id)
+        
+        if not session:
+            return
+        
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=generate_quiz_complete_message(20)
+        )
+        
+        await asyncio.sleep(2)
+        
+        leaderboard_data = session.get_leaderboard_data()
+        leaderboard_message = generate_leaderboard_message(leaderboard_data, session.chapter, 20)
+        
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=leaderboard_message,
+            parse_mode='Markdown'
+        )
+        
+        logger.info(f"Quiz completed for chat {chat_id}, participants: {len(leaderboard_data)}")
+        
+        stats_manager.record_quiz(20)
+        
+        quiz_session_manager.end_session(chat_id)
+        
+    except Exception as e:
+        logger.error(f"Error finalizing quiz: {e}", exc_info=True)
+        quiz_session_manager.end_session(chat_id)
+
+async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle poll answers and track user scores."""
+    try:
+        poll_answer = update.poll_answer
+        poll_id = poll_answer.poll_id
+        user = poll_answer.user
+        option_ids = poll_answer.option_ids
+        
+        if not option_ids:
+            return
+        
+        option_id = option_ids[0]
+        
+        session = quiz_session_manager.get_session_by_poll(poll_id)
+        
+        if not session:
+            return
+        
+        if session.question_start_time is None:
+            return
+        
+        time_taken = time.time() - session.question_start_time
+        
+        user_name = user.first_name or user.username or f"User{user.id}"
+        
+        session.record_answer(user.id, user_name, option_id, time_taken)
+        
+        logger.info(f"Recorded answer from {user_name} (ID: {user.id}) for poll {poll_id}, option: {option_id}, time: {time_taken:.2f}s")
+        
+    except Exception as e:
+        logger.error(f"Error handling poll answer: {e}", exc_info=True)
+
+@check_force_join
+async def stop_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Stop the current quiz session."""
+    chat_id = update.effective_chat.id
+    
+    if not quiz_session_manager.has_active_session(chat_id):
+        await update.message.reply_text(
+            "❌ No active quiz session in this chat.\n\n"
+            "【~@DrQuizRobot】"
+        )
+        return
+    
+    quiz_session_manager.end_session(chat_id)
+    
+    await update.message.reply_text(
+        "🛑 Quiz session stopped!\n\n"
+        "You can start a new quiz anytime with /quiz [chapter name]\n\n"
+        "【~@DrQuizRobot】"
+    )
 
 @admin_only
 async def fjoin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1066,6 +1294,8 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("cquiz", create_quiz))
+    application.add_handler(CommandHandler("quiz", timed_quiz_command))
+    application.add_handler(CommandHandler("stopquiz", stop_quiz_command))
     application.add_handler(CommandHandler("myid", myid_command))
     
     # Admin commands
@@ -1090,6 +1320,9 @@ def main():
     
     # New member handler
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
+    
+    # Poll answer handler for timed quiz
+    application.add_handler(PollAnswerHandler(handle_poll_answer))
     
     # Callback query handlers
     application.add_handler(CallbackQueryHandler(anonymous_verification_callback, pattern="^verify:"))
