@@ -6,6 +6,17 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
+**October 26, 2025** (Latest Update - Part 5):
+- ✅ **NEW FEATURE**: Daily Good Morning Wishes at 6 AM IST
+  - Automated daily broadcast to all users and groups at 6:00 AM Indian time
+  - Beautiful, decorated messages with margins, emojis, and elegant formatting
+  - 39 English and 15 Hindi motivational/inspirational quotes
+  - Language-specific messages based on user/group preferences
+  - Includes clickable "Aman" link to @Aman_PersonalBot
+  - Scheduled using APScheduler with proper error handling
+  - Created `good_morning_manager.py` for message generation
+  - Broadcasts to all tracked users and groups automatically
+
 **October 26, 2025** (Latest Update - Part 4):
 - ✅ **NEW COMMAND**: `/explain` - Concise Question & Concept Explanations
   - Direct text explanations: `/explain [question or topic]`
@@ -142,6 +153,14 @@ Preferred communication style: Simple, everyday language.
    - Token-based verification with inline buttons
    - 5-minute timeout for pending verifications
    - DM-based verification flow
+
+9. **Good Morning Wishes** (`good_morning_manager.py`):
+   - Daily automated good morning messages at 6:00 AM IST
+   - 39 English motivational quotes and 15 Hindi quotes
+   - Beautiful formatting with decorative borders and emojis
+   - Bilingual support based on user/group language preferences
+   - Clickable link to @Aman_PersonalBot in every message
+   - Scheduled broadcast to all tracked users and groups
 
 ### Data Persistence
 
