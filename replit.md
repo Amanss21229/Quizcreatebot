@@ -6,15 +6,23 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
-**October 26, 2025** (Latest Update - Part 2):
+**October 26, 2025** (Latest Update - Part 3):
+- ✅ **Implemented Member Tracking Database for /tagall**
+  - Created persistent member tracking system (`data/tracked_members.json`)
+  - Bot automatically tracks all users who send messages in groups
+  - Stores user ID, first name, username, admin status, and last seen timestamp
+  - `/tagall` command now uses tracked database instead of API calls
+  - Works around Telegram Bot API limitation (cannot fetch full member list)
+  - Members are tracked over time as they interact with the group
+  - Admins are automatically excluded from tagging
+  - Provides clear feedback when no non-admin members are tracked yet
+
+**October 26, 2025** (Earlier - Part 2):
 - ✅ **Modified /tagall Command**
   - Added 60+ funny, teasing, engaging questions in Hindi/Hinglish style
   - Updated format: `User mention : Question` with margin (double newline) between users
   - Batching: 15 users per message
   - Excludes bots and anonymous users
-  - ⚠️ **Telegram API Limitation**: Bot API can only see administrators and recently active members
-  - Non-admin members cannot be detected unless they've recently sent messages
-  - Added clear error message explaining this limitation
 
 **October 26, 2025** (Latest Update - Part 1):
 - ✅ **NEET Scoring Pattern Implemented**
@@ -107,9 +115,13 @@ Preferred communication style: Simple, everyday language.
    - Stored in `data/language_settings.json`
 
 7. **Tag All Feature** (`tagall_manager.py`):
-   - Mentions all group members in a single message
+   - Automatically tracks all group members who send messages
+   - Persistent member database (`data/tracked_members.json`)
+   - Tags members with funny Hindi/Hinglish questions
    - Configurable permissions (admin-only or all-users)
-   - Uses silent mentions to avoid spam notifications
+   - Uses text-mention format `[Name](tg://user?id=X)`
+   - Excludes admins automatically from tagging
+   - Batches of 15 members per message
 
 8. **Anonymous Admin Verification** (`anonymous_verifier.py`):
    - Handles Telegram anonymous admin restrictions
@@ -125,6 +137,7 @@ Preferred communication style: Simple, everyday language.
 - `force_join_data.json`: Required channels/groups
 - `data/language_settings.json`: Per-chat language preferences
 - `data/tagall_permissions.json`: Per-group tagall permissions
+- `data/tracked_members.json`: Member tracking database for tagall feature
 - `data/welcome_groups.json`: Groups with welcome messages enabled
 
 **Design Rationale**: Chosen over databases for:

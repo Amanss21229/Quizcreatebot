@@ -1323,27 +1323,43 @@ async def track_group_members(update: Update, context: ContextTypes.DEFAULT_TYPE
         user = update.effective_user
         chat_id = update.effective_chat.id
         
-        # Check if user is admin
-        is_admin = False
-        try:
-            member = await context.bot.get_chat_member(chat_id, user.id)
-            if member.status in ['creator', 'administrator']:
-                is_admin = True
-        except:
-            pass
-        
-        # Track the member
+        # Track the member (admin status updated periodically, not per-message)
         tagall_manager.track_member(
             chat_id=chat_id,
             user_id=user.id,
             first_name=user.first_name,
             username=user.username,
-            is_admin=is_admin,
             is_bot=user.is_bot
         )
         
     except Exception as e:
         logger.error(f"Error tracking group member: {e}")
+
+async def refresh_admin_cache(context: ContextTypes.DEFAULT_TYPE):
+    """Periodically refresh admin status for all tracked groups."""
+    try:
+        # Get all tracked chat IDs
+        tracked_chats = list(tagall_manager.tracked_members.keys())
+        
+        for chat_id_str in tracked_chats:
+            try:
+                chat_id = int(chat_id_str)
+                
+                # Get current administrators
+                administrators = await context.bot.get_chat_administrators(chat_id)
+                admin_ids = {admin.user.id for admin in administrators if not admin.user.is_bot}
+                
+                # Update admin status in batch
+                tagall_manager.update_admin_status(chat_id, admin_ids)
+                
+            except Exception as e:
+                logger.error(f"Error refreshing admins for chat {chat_id_str}: {e}")
+        
+        # Flush any pending saves
+        tagall_manager.flush_pending_saves()
+        
+    except Exception as e:
+        logger.error(f"Error in admin cache refresh: {e}")
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by updates."""
@@ -1397,6 +1413,9 @@ def main():
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
     
     application.add_error_handler(error_handler)
+    
+    # Schedule periodic admin cache refresh (every 5 minutes)
+    application.job_queue.run_repeating(refresh_admin_cache, interval=300, first=60)
     
     logger.info("Bot is starting...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)

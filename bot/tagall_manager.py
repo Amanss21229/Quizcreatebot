@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from datetime import datetime
+import time
 
 class TagAllManager:
     def __init__(self, 
@@ -10,6 +11,9 @@ class TagAllManager:
         self.members_file = members_file
         self.permissions = self._load_permissions()
         self.tracked_members = self._load_members()
+        self._pending_save = False
+        self._last_save_time = 0
+        self._save_interval = 10
     
     def _load_permissions(self):
         try:
@@ -44,8 +48,24 @@ class TagAllManager:
             Path('data').mkdir(exist_ok=True)
             with open(self.members_file, 'w', encoding='utf-8') as f:
                 json.dump(self.tracked_members, f, ensure_ascii=False, indent=2)
+            self._last_save_time = time.time()
+            self._pending_save = False
         except Exception as e:
             print(f"Error saving tracked members data: {e}")
+    
+    def _save_members_throttled(self):
+        """Save members data with throttling to avoid blocking on every message."""
+        self._pending_save = True
+        current_time = time.time()
+        
+        # Only save if enough time has passed since last save
+        if current_time - self._last_save_time >= self._save_interval:
+            self._save_members()
+    
+    def flush_pending_saves(self):
+        """Force save if there are pending changes. Call this on shutdown."""
+        if self._pending_save:
+            self._save_members()
     
     def set_permission(self, group_id, permission_type):
         """Set tagall permission for a group. permission_type: 'user' or 'admin'."""
@@ -74,8 +94,8 @@ class TagAllManager:
         
         return False
     
-    def track_member(self, chat_id, user_id, first_name, username=None, is_admin=False, is_bot=False):
-        """Track a member who sends a message in the group."""
+    def track_member(self, chat_id, user_id, first_name, username=None, is_bot=False):
+        """Track a member who sends a message in the group. Admin status updated separately."""
         chat_id = str(chat_id)
         user_id = str(user_id)
         
@@ -87,16 +107,36 @@ class TagAllManager:
         if chat_id not in self.tracked_members:
             self.tracked_members[chat_id] = {}
         
+        # Get existing admin status or default to False
+        existing_is_admin = False
+        if user_id in self.tracked_members[chat_id]:
+            existing_is_admin = self.tracked_members[chat_id][user_id].get('is_admin', False)
+        
         # Store/update user info
         self.tracked_members[chat_id][user_id] = {
             'user_id': int(user_id),
             'first_name': first_name,
             'username': username,
-            'is_admin': is_admin,
+            'is_admin': existing_is_admin,
             'last_seen': datetime.now().isoformat()
         }
         
-        self._save_members()
+        # Use throttled save instead of immediate save
+        self._save_members_throttled()
+    
+    def update_admin_status(self, chat_id, admin_ids):
+        """Batch update admin status for all tracked members in a chat."""
+        chat_id = str(chat_id)
+        
+        if chat_id not in self.tracked_members:
+            return
+        
+        # Update admin status for all tracked members
+        for user_id in self.tracked_members[chat_id]:
+            self.tracked_members[chat_id][user_id]['is_admin'] = int(user_id) in admin_ids
+        
+        # Use throttled save
+        self._save_members_throttled()
     
     def get_members_for_tagging(self, chat_id, exclude_admins=True):
         """Get list of tracked members for a chat, optionally excluding admins."""
