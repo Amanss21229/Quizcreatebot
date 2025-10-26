@@ -13,7 +13,7 @@ from bot.stats_manager import stats_manager
 from bot.admin_manager import AdminManager
 from bot.welcome_manager import welcome_manager
 from bot.language_manager import language_manager
-from bot.song_lyrics import get_personalized_message_template
+from bot.song_lyrics import get_personalized_message_template, get_tagall_question
 from bot.tagall_manager import tagall_manager
 from bot.anonymous_verifier import anonymous_verifier
 from bot.quiz_session_manager import quiz_session_manager
@@ -1158,18 +1158,23 @@ async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        # Get all chat administrators
+        # Note: Due to Telegram API limitations, we can only get members who are:
+        # 1. Administrators
+        # 2. Recently active (sent messages recently)
+        # Full member list is not available through bot API
+        
+        # Get all chat members we can access
         administrators = await context.bot.get_chat_administrators(chat.id)
         
-        # Get admin IDs to exclude them
+        # Collect all members (excluding bots and anonymous)
+        all_members = []
         admin_ids = set()
-        for admin in administrators:
-            if not admin.user.is_bot:
-                admin_ids.add(admin.user.id)
         
-        # Collect all members (excluding bots, anonymous, and admins)
-        members_to_tag = []
         for admin in administrators:
+            # Track admin IDs
+            if admin.status in ['creator', 'administrator'] and not admin.user.is_bot:
+                admin_ids.add(admin.user.id)
+            
             # Skip bots
             if admin.user.is_bot:
                 continue
@@ -1177,18 +1182,26 @@ async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Skip anonymous admins  
             if hasattr(admin, 'is_anonymous') and admin.is_anonymous:
                 continue
-            
-            # Skip admins (creator and administrators)
-            if admin.status in ['creator', 'administrator']:
-                continue
                 
-            members_to_tag.append(admin.user)
+            all_members.append((admin.user, admin.status))
         
-        # If no non-admin members found, inform user
+        # Separate into admins and non-admins
+        non_admin_members = []
+        for member, status in all_members:
+            if member.id not in admin_ids:
+                non_admin_members.append(member)
+        
+        # Only tag non-admin members (exclude admins completely)
+        members_to_tag = non_admin_members
+        
         if not members_to_tag:
             await update.message.reply_text(
                 "⚠️ No non-admin members found to tag!\n\n"
-                "Note: Due to Telegram limitations, only recently active members can be detected."
+                "📌 Due to Telegram API limitations:\n"
+                "• Bot can only detect members who have recently sent messages in the group\n"
+                "• Full member list is not accessible through Telegram Bot API\n"
+                "• Only admins are visible by default\n\n"
+                "💡 Tip: Ask group members to send at least one message, then try /tagall again!"
             )
             return
         

@@ -6,7 +6,17 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
-**October 26, 2025** (Latest Update):
+**October 26, 2025** (Latest Update - Part 2):
+- ✅ **Modified /tagall Command**
+  - Added 60+ funny, teasing, engaging questions in Hindi/Hinglish style
+  - Updated format: `User mention : Question` with margin (double newline) between users
+  - Batching: 15 users per message
+  - Excludes bots and anonymous users
+  - ⚠️ **Telegram API Limitation**: Bot API can only see administrators and recently active members
+  - Non-admin members cannot be detected unless they've recently sent messages
+  - Added clear error message explaining this limitation
+
+**October 26, 2025** (Latest Update - Part 1):
 - ✅ **NEET Scoring Pattern Implemented**
   - Correct answers now give +4 marks (instead of +1)
   - Wrong answers now give -1 mark (instead of 0)
