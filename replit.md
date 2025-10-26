@@ -6,6 +6,16 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
+**October 26, 2025** (Latest Update - Part 6):
+- ✅ **QUIZ MUTUAL EXCLUSION**: Implemented Quiz Lock Manager
+  - Only one quiz can run at a time per group/chat (whether /cquiz or /quiz)
+  - Created `quiz_lock_manager.py` for centralized quiz concurrency control
+  - Both /cquiz and /quiz commands now check for active quizzes before starting
+  - Informative messages when users try to start concurrent quizzes
+  - Proper lock acquisition and release in all success and error paths
+  - Prevents race conditions and ensures clean quiz state management
+  - Production-ready with defensive error handling and lock leak prevention
+
 **October 26, 2025** (Latest Update - Part 5):
 - ✅ **NEW FEATURE**: Daily Good Morning Wishes at 6 AM IST
   - Automated daily broadcast to all users and groups at 6:00 AM Indian time
