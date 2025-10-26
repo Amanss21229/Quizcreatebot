@@ -215,12 +215,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 👥 **GROUP MANAGEMENT COMMANDS**
 
-🔹 `/welcome` - Configure welcome messages
+🔹 `/welcomeon` - Configure welcome messages
    • Customize group welcome text
    • Auto-greet new members
    • Admin/Group Admin only
 
-🔹 `/removewelcome` - Disable welcome messages
+🔹 `/welcomeoff` - Disable welcome messages
    • Turn off auto-greeting
    • Admin/Group Admin only
 
@@ -229,22 +229,31 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
    • Great for announcements
    • Permission-based access
 
-🔹 `/givepermission` - Grant tagall access
-   • Reply to user's message
+🔹 `/allowtagall user` - Grant users to /tagall access
    • Admin/Group Admin only
 
-🔹 `/removepermission` - Revoke tagall access
-   • Reply to user's message
+🔹 `/allowtagall admin` - only admin has /tagall access
    • Admin/Group Admin only
 
-🔹 `/goodmorning` - Setup morning wishes
-   • Auto-send greetings at 6 AM
+🔹 `/myid` - user can check thir Info.
+   • works in all groups
    • Customizable message
-   • Admin/Group Admin only
+   • work in Bot also
 
-🔹 `/removegoodmorning` - Disable morning wishes
-   • Turn off auto-greetings
-   • Admin/Group Admin only
+🔹 `/developer` - Meet The Bot Developer 
+   • Contact With Developer 
+   • work in group as well in bot also
+   
+🔹️ `/botsupport` - Get Support From Admin
+   • Get support from admins or developer 
+   • work in groups as well bot also
+
+🔹️ '/help' - Know About All the Bot commands 
+   • Know how the bot works.
+   • how the commands work
+   
+🔹️ '/donate' - Donate to the Support
+   • Support The bot and the community 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
