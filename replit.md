@@ -6,6 +6,18 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
+**October 26, 2025** (Latest Update - Part 4):
+- ✅ **NEW COMMAND**: `/explain` - Detailed Question & Concept Explanations
+  - Direct text explanations: `/explain [question or topic]`
+  - Reply to messages with `/explain` to get detailed explanations
+  - Works with text messages, quizzes, polls, and images with captions
+  - Explanations generated in selected language (Hindi/English via `/language`)
+  - Uses Gemini AI for comprehensive NEET-focused explanations
+  - Includes concept explanations, correct answers, NCERT references, and exam tips
+  - Smart message splitting for long explanations (4000 char limit handling)
+  - Added explanation generator method in `quiz_generator.py`
+  - Updated help command with `/explain` usage instructions
+
 **October 26, 2025** (Latest Update - Part 3):
 - ✅ **Implemented Member Tracking Database for /tagall**
   - Created persistent member tracking system (`data/tracked_members.json`)
@@ -87,6 +99,8 @@ Preferred communication style: Simple, everyday language.
    - Supports bilingual output (English/Hindi)
    - Generates NEET-standard MCQs with detailed explanations
    - Validates and parses JSON responses from LLM
+   - NEW: `generate_explanation()` method for detailed concept/question explanations
+   - Provides comprehensive explanations with NCERT references and exam tips
 
 2. **Admin Management** (`admin_manager.py`):
    - Dual-tier system: permanent admins (configured) + dynamic admins (runtime)
