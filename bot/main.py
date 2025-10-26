@@ -374,6 +374,41 @@ Our developer is here to help you! 👨‍💻
     await update.message.reply_text(support_message, reply_markup=reply_markup)
 
 @check_force_join
+async def developer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send developer information message with buttons."""
+    developer_message = """╔═══════════════════════════════════╗
+║   🚀 𝗠𝗘𝗘𝗧 𝗧𝗛𝗘 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥 🚀   ║
+╚═══════════════════════════════════╝
+
+👋 Namaste 🇮🇳! ✨
+
+🎯 Meet Aman - The visionary behind this This NEET QUIZZING BOT
+
+⚡ Who is Aman?
+🏢 Founder & CEO of 『Sᴀɴsᴀ Fᴇᴇʟ』
+✈️ Owner Of AimAi 【Your Personal Ai Tutor For Neet & Jee Preparation】
+🎓 working On Different Projects. 
+💻 Tech Innovator building educational solutions
+
+🌟 What Makes Him Special?
+✅ Created this FREE quiz bot for students like you
+✅ Personally reviews every feature for student benefit  
+✅ Available for 1-on-1 chatting, to know the suggestions ideas and feedback 
+✅ Passionate about making Student's struggle & preparation affordable
+
+═══════════════════════════════════
+Let's connect with Aman Directly, privately and securely!
+"""
+    
+    keyboard = [
+        [InlineKeyboardButton("👨‍💻 Meet the Developer", url="https://t.me/Aman_personalBot")],
+        [InlineKeyboardButton("📢 Checkout the Updates", url="https://t.me/founderofsana")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(developer_message, reply_markup=reply_markup)
+
+@check_force_join
 async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /cquiz command to generate a quiz."""
     chat_id = update.effective_chat.id
@@ -1958,6 +1993,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("botsupport", botsupport_command))
+    application.add_handler(CommandHandler("developer", developer_command))
     application.add_handler(CommandHandler("cquiz", create_quiz))
     application.add_handler(CommandHandler("quiz", timed_quiz_command))
     application.add_handler(CommandHandler("stopquiz", stop_quiz_command))
