@@ -6,6 +6,20 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
+**October 26, 2025**:
+- ✅ **NEW FEATURE**: Timed Quiz Sessions with Leaderboard
+  - Added `/quiz [chapter]` command for 20-question timed quiz sessions
+  - Each question has 45-second timer with auto-advance
+  - Real-time participant tracking and score calculation
+  - Beautiful premium leaderboard with rankings, accuracy, and time stats
+  - Enhanced quiz generator: Biology gets 50% NCERT exact-line + 50% NEET PYQs
+  - Physics/Chemistry gets 100% NEET PYQs (2015-2024)
+  - Fixed double-counting when users change poll answers
+  - Added Markdown escaping for safe leaderboard rendering
+- ✅ Created `quiz_session_manager.py` for session state management
+- ✅ Created `leaderboard_generator.py` with premium formatting
+- ✅ Added `/stopquiz` command to cancel active quiz sessions
+
 **October 25, 2025**:
 - ✅ Implemented anonymous admin verification system for Telegram groups
 - ✅ Updated `bot_or_group_admin_only` decorator to handle anonymous admins safely
