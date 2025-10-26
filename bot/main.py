@@ -19,6 +19,7 @@ from bot.anonymous_verifier import anonymous_verifier
 from bot.quiz_session_manager import quiz_session_manager
 from bot.leaderboard_generator import generate_leaderboard_message, generate_quiz_complete_message
 from bot.good_morning_manager import good_morning_manager
+from bot.quiz_lock_manager import quiz_lock_manager
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -336,6 +337,9 @@ Our developer is here to help you! 👨‍💻
 @check_force_join
 async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /cquiz command to generate a quiz."""
+    chat_id = update.effective_chat.id
+    lock_acquired = False
+    
     try:
         if not context.args or len(context.args) < 2:
             await update.message.reply_text(
@@ -347,6 +351,22 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "📖 **Example:**\n"
                 "• /cquiz Human Physiology 5\n"
                 "• /cquiz Thermodynamics 10\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        if quiz_lock_manager.is_locked(chat_id):
+            lock_info = quiz_lock_manager.get_lock_info(chat_id)
+            quiz_type_msg = "timer quiz" if lock_info.quiz_type == "timer_quiz" else "quiz"
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║   ⚠️ QUIZ IN PROGRESS ⚠️      ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                f"🎮 A {quiz_type_msg} is currently active!\n\n"
+                "⏳ **Please:**\n"
+                "• Wait for current quiz to complete\n"
+                "• Or use /stopquiz to end it\n\n"
+                "📌 Only one quiz can run at a time per group.\n\n"
                 "【~@DrQuizRobot】"
             )
             return
@@ -380,8 +400,20 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
+        if not quiz_lock_manager.acquire_lock(chat_id, "cquiz"):
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║   ⚠️ QUIZ IN PROGRESS ⚠️      ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "🎮 Another quiz is currently active!\n\n"
+                "⏳ Please wait for it to complete.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        lock_acquired = True
+        
         # Get language setting for this chat
-        chat_id = update.effective_chat.id
         language = language_manager.get_language(chat_id)
         
         await update.message.reply_text(
@@ -399,6 +431,8 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         questions = quiz_gen.generate_quiz(chapter, num_questions, language)
         
         if not questions:
+            if lock_acquired:
+                quiz_lock_manager.release_lock(chat_id)
             await update.message.reply_text(
                 "╔═══════════════════════════════╗\n"
                 "║   ❌ GENERATION FAILED ❌      ║\n"
@@ -458,8 +492,13 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "【~@DrQuizRobot】"
         )
         
+        if lock_acquired:
+            quiz_lock_manager.release_lock(chat_id)
+        
     except ValueError as e:
         logger.error(f"Value error in create_quiz: {e}")
+        if lock_acquired:
+            quiz_lock_manager.release_lock(chat_id)
         await update.message.reply_text(
             "╔═══════════════════════════════╗\n"
             "║   ❌ GENERATION FAILED ❌      ║\n"
@@ -473,6 +512,8 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         logger.error(f"Error in create_quiz: {e}")
+        if lock_acquired:
+            quiz_lock_manager.release_lock(chat_id)
         await update.message.reply_text(
             "╔═══════════════════════════════╗\n"
             "║      ❌ ERROR ❌               ║\n"
@@ -485,16 +526,21 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @check_force_join
 async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /quiz command to start a timed quiz session with 20 questions."""
+    chat_id = None
+    lock_acquired = False
+    
     try:
         chat_id = update.effective_chat.id
         is_private_chat = update.effective_chat.type == 'private'
         
-        if quiz_session_manager.has_active_session(chat_id):
+        if quiz_session_manager.has_active_session(chat_id) or quiz_lock_manager.is_locked(chat_id):
+            lock_info = quiz_lock_manager.get_lock_info(chat_id)
+            quiz_type_msg = "cquiz" if lock_info and lock_info.quiz_type == "cquiz" else "timer quiz"
             await update.message.reply_text(
                 "╔═══════════════════════════════╗\n"
                 "║   ⚠️ QUIZ ALREADY ACTIVE ⚠️   ║\n"
                 "╚═══════════════════════════════╝\n\n"
-                "🎮 A quiz is already running!\n\n"
+                f"🎮 A {quiz_type_msg} is already running!\n\n"
                 "⏳ Please wait for it to finish\n"
                 "🛑 Or use /stopquiz to cancel\n\n"
                 "【~@DrQuizRobot】"
@@ -556,6 +602,19 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             return
         
+        if not quiz_lock_manager.acquire_lock(chat_id, "timer_quiz"):
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║   ⚠️ QUIZ IN PROGRESS ⚠️      ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "🎮 Another quiz is currently active!\n\n"
+                "⏳ Please wait for it to complete.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        lock_acquired = True
+        
         session = quiz_session_manager.create_session(chat_id, chapter, questions, is_private_chat)
         
         await update.message.reply_text(
@@ -579,16 +638,19 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
     except Exception as e:
         logger.error(f"Error in timed_quiz_command: {e}", exc_info=True)
-        await update.message.reply_text(
-            "╔═══════════════════════════════╗\n"
-            "║      ❌ ERROR ❌               ║\n"
-            "╚═══════════════════════════════╝\n\n"
-            "⚠️ Could not start quiz\n\n"
-            "🔄 Please try again later\n\n"
-            "【~@DrQuizRobot】"
-        )
-        if quiz_session_manager.has_active_session(update.effective_chat.id):
-            quiz_session_manager.end_session(update.effective_chat.id)
+        if chat_id and lock_acquired:
+            quiz_lock_manager.release_lock(chat_id)
+        if chat_id:
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║      ❌ ERROR ❌               ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "⚠️ Could not start quiz\n\n"
+                "🔄 Please try again later\n\n"
+                "【~@DrQuizRobot】"
+            )
+        if chat_id and quiz_session_manager.has_active_session(chat_id):
+            quiz_session_manager.end_session(chat_id)
 
 async def send_next_question(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     """Send the next question in the quiz session."""
@@ -642,6 +704,7 @@ async def send_next_question(update: Update, context: ContextTypes.DEFAULT_TYPE,
                  "【~@DrQuizRobot】"
         )
         quiz_session_manager.end_session(chat_id)
+        quiz_lock_manager.release_lock(chat_id)
 
 async def auto_advance_question(update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int, delay: int):
     """Auto-advance to next question after delay."""
@@ -692,10 +755,12 @@ async def finalize_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE, chat
         stats_manager.record_quiz(questions_answered)
         
         quiz_session_manager.end_session(chat_id)
+        quiz_lock_manager.release_lock(chat_id)
         
     except Exception as e:
         logger.error(f"Error finalizing quiz: {e}", exc_info=True)
         quiz_session_manager.end_session(chat_id)
+        quiz_lock_manager.release_lock(chat_id)
 
 async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle poll answers and track user scores."""
