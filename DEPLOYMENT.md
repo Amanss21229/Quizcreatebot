@@ -32,10 +32,12 @@ git push -u origin main
 
 1. **Sign up/Login to Render**: Go to [render.com](https://render.com) and create an account
 
-2. **Create New Web Service**:
-   - Click "New +" → "Web Service"
+2. **Create New Background Worker**:
+   - Click "New +" → "Background Worker"
    - Connect your GitHub repository
    - Render will automatically detect the `render.yaml` file
+   
+   **Note**: Use "Background Worker" not "Web Service" because Telegram bots using polling don't need to expose any ports.
 
 3. **Configure Environment Variables**:
    - In the Render dashboard, go to your service's "Environment" section
@@ -46,13 +48,13 @@ git push -u origin main
      ```
 
 4. **Deploy**:
-   - Click "Create Web Service"
+   - Click "Create Background Worker"
    - Render will automatically build and deploy your bot
    - Wait for the deployment to complete (usually 2-5 minutes)
 
 ### Option B: Manual Deployment
 
-1. **Create New Web Service** on Render
+1. **Create New Background Worker** on Render (NOT Web Service)
 
 2. **Configure Build Settings**:
    - **Environment**: Python 3
@@ -66,7 +68,7 @@ git push -u origin main
    GOOGLE_API_KEY=your_google_gemini_api_key_here
    ```
 
-4. **Deploy**: Click "Create Web Service"
+4. **Deploy**: Click "Create Background Worker"
 
 ---
 
