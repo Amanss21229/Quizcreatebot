@@ -127,11 +127,12 @@ def check_force_join(func):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a welcome message when the command /start is issued."""
     welcome_message = """
-╔══════════════════════════════════════╗
-║                                      ║
-║   🌟 **Welcome to Dr. Quiz Robot!** 🌟   ║
-║                                      ║
-╚══════════════════════════════════════╝
+╔══════════════════════════╗
+║ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ ㅤㅤ  ❣️
+║ ㅤㅤ✨Welcome Toㅤㅤㅤㅤㅤㅤㅤㅤㅤ ㅤ❣️
+║ㅤ   ㅤㅤㅤ𝙉𝙀𝙀𝙏 𝙌𝙐𝙄𝙕𝙕𝙄𝙉𝙂 𝘽𝙊𝙏📊✨️   ㅤ❣️
+║ㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤㅤ ㅤㅤㅤㅤㅤ  ㅤ❣️
+╚══════════════════════════╝
 
 🎯 **Your Personal NEET Preparation Partner!**
 
