@@ -137,6 +137,7 @@ class LiveQuizCoordinator:
         self.active_session: Optional[LiveQuizSession] = None
         self.session_history: List[str] = []
         self.question_duration = 45  # seconds per question
+        self.poll_to_question_map: Dict[str, tuple] = {}  # poll_id -> (session_id, question_index)
     
     def has_active_session(self) -> bool:
         """Check if there's an active live quiz session"""
@@ -305,8 +306,14 @@ Good luck! 🍀
                         open_period=self.question_duration
                     )
                     
-                    group_state.poll_ids.append(poll_message.poll.id)
+                    poll_id = poll_message.poll.id
+                    group_state.poll_ids.append(poll_id)
                     group_state.current_question_index = idx
+                    
+                    # Register poll in global map for easy lookup
+                    self.poll_to_question_map[poll_id] = (session.session_id, idx, group_id)
+                    
+                    logger.info(f"Sent live quiz Q{question_num} to group {group_id}, poll_id: {poll_id}")
                     
                 except Exception as e:
                     logger.error(f"Failed to send question {question_num} to group {group_id}: {e}")
@@ -354,6 +361,14 @@ Good luck! 🍀
                 logger.error(f"Failed to send leaderboard to group {group_id}: {e}")
         
         logger.info(f"Live quiz session {session.session_id} completed with {len(session.participants)} participants")
+        
+        # Clean up poll mappings to avoid memory leaks
+        polls_to_remove = [poll_id for poll_id, (sess_id, _, _) in self.poll_to_question_map.items() 
+                          if sess_id == session.session_id]
+        for poll_id in polls_to_remove:
+            del self.poll_to_question_map[poll_id]
+        
+        logger.info(f"Cleaned up {len(polls_to_remove)} poll mappings for session {session.session_id}")
         
         # Clear active session
         self.active_session = None

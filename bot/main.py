@@ -912,35 +912,34 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         option_id = option_ids[0]
         
-        if live_quiz_coordinator.has_active_session():
+        if poll_id in live_quiz_coordinator.poll_to_question_map:
+            session_id, question_idx, group_id = live_quiz_coordinator.poll_to_question_map[poll_id]
             live_session = live_quiz_coordinator.active_session
             
-            for group_id, group_state in live_session.group_states.items():
-                if poll_id in group_state.poll_ids:
-                    poll_index = group_state.poll_ids.index(poll_id)
-                    question = live_session.questions[poll_index]
-                    is_correct = (option_id == question['correct_option_index'])
-                    
-                    try:
-                        chat = await context.bot.get_chat(group_id)
-                        group_title = chat.title or f"Group {group_id}"
-                    except:
-                        group_title = f"Group {group_id}"
-                    
-                    time_taken = 1.0
-                    
-                    live_session.record_answer(
-                        user.id,
-                        user.username,
-                        user.first_name,
-                        group_id,
-                        group_title,
-                        is_correct,
-                        time_taken
-                    )
-                    
-                    logger.info(f"Recorded live quiz answer from {user.first_name} (ID: {user.id}) in group {group_id}, correct: {is_correct}")
-                    return
+            if live_session and live_session.session_id == session_id:
+                question = live_session.questions[question_idx]
+                is_correct = (option_id == question['correct_option_index'])
+                
+                try:
+                    chat = await context.bot.get_chat(group_id)
+                    group_title = chat.title or f"Group {group_id}"
+                except:
+                    group_title = f"Group {group_id}"
+                
+                time_taken = 1.0
+                
+                live_session.record_answer(
+                    user.id,
+                    user.username,
+                    user.first_name,
+                    group_id,
+                    group_title,
+                    is_correct,
+                    time_taken
+                )
+                
+                logger.info(f"[LIVE QUIZ] Recorded answer from {user.first_name} (ID: {user.id}) in group {group_id}, correct: {is_correct}, question: {question_idx+1}/20")
+                return
         
         session = quiz_session_manager.get_session_by_poll(poll_id)
         
