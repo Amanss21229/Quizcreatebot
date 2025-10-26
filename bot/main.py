@@ -115,7 +115,7 @@ def check_force_join(func):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a welcome message when the command /start is issued."""
     welcome_message = """
-🎓 Welcome to AUTO QUIZ CREATE BOT! 【~@DrQuizRobot】
+🎓 Welcome to NEET Quizzing Bot! 【~@DrQuizRobot】
 
 I generate NEET UG Previous Year Questions (PYQs) and exam-standard MCQs from NCERT Class 11th and 12th textbooks.
 
@@ -142,44 +142,187 @@ I generate NEET UG Previous Year Questions (PYQs) and exam-standard MCQs from NC
 
 Start creating your NEET PYQ quiz now! 🚀
 """
-    await update.message.reply_text(welcome_message)
+    
+    keyboard = [
+        [InlineKeyboardButton("➕ Add Me To Your Group", url="https://t.me/DrQuizRobot?startgroup=true")],
+        [
+            InlineKeyboardButton("👨‍💻 Meet the Developer", url="https://t.me/Aman_personalBot"),
+            InlineKeyboardButton("📢 Get Bot Updates", url="https://t.me/DrQuizRobotUpdates")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
 @check_force_join
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a help message when the command /help is issued."""
     help_text = """
-📖 AUTO QUIZ CREATE BOT - Help
+╔═══════════════════════════════╗
+║   📚 **NEET QUIZZING BOT**   ║
+║         【~@DrQuizRobot】        ║
+╚═══════════════════════════════╝
 
-📝 Quiz Commands:
-/cquiz [chapter] [num] - Create instant quiz
-/quiz [chapter] - Start 20-question timer quiz (NEET pattern)
-/end - End timer quiz early & show leaderboard
-/stopquiz - Stop quiz without leaderboard
-/explain [question/topic] - Get detailed explanation
-/explain (reply to message) - Explain any message/quiz/poll
+🎯 **Your Ultimate NEET Preparation Companion!**
 
-Examples:
-• /cquiz Human Physiology 5
-• /quiz Thermodynamics
-• /explain What is mitochondria?
-• Reply to quiz with: /explain
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 NEET Scoring Pattern:
-• Correct Answer: +4 marks
-• Wrong Answer: -1 mark
-• Not Attempted: 0 marks
+📝 **QUIZ COMMANDS**
 
-🌐 Language Settings:
-• Use /language to change quiz language (Hindi/English)
-• Explanations will be in selected language
+🔹 `/cquiz [chapter] [number]`
+   Create instant quiz with custom questions
+   • Range: 1-20 questions
+   • Format: Interactive quiz polls
+   • Example: `/cquiz Human Physiology 5`
 
-Valid Inputs:
-• Chapter: Any NCERT Class 11/12 chapter
-• Questions: 1-20 per quiz
+🔹 `/quiz [chapter]`
+   Start 20-question timed quiz session
+   • Timer: 45 seconds per question
+   • Auto-advance: Questions move automatically
+   • Leaderboard: Rankings at the end
+   • Example: `/quiz Thermodynamics`
 
-Need help? Type /start to see examples!
+🔹 `/end`
+   End timer quiz early and show leaderboard
+   • Shows current standings
+   • Displays your score
+   • Great for practice sessions
+
+🔹 `/stopquiz`
+   Stop quiz without showing leaderboard
+   • Immediately cancels quiz
+   • No score recording
+   • Start fresh anytime
+
+🔹 `/explain [question/topic]`
+   Get detailed AI-powered explanations
+   • Ask about any concept
+   • Reply to quiz questions for explanation
+   • Example: `/explain What is photosynthesis?`
+   • Or reply to any poll with `/explain`
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️ **SETTINGS & CUSTOMIZATION**
+
+🌐 `/language`
+   Switch quiz language (Hindi/English)
+   • Questions in your preferred language
+   • Explanations in same language
+   • Saves per group/chat preference
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👥 **GROUP MANAGEMENT COMMANDS**
+
+🔹 `/welcome` - Configure welcome messages
+   • Customize group welcome text
+   • Auto-greet new members
+   • Admin/Group Admin only
+
+🔹 `/removewelcome` - Disable welcome messages
+   • Turn off auto-greeting
+   • Admin/Group Admin only
+
+🔹 `/tagall [message]` - Tag all members
+   • Notify everyone in group
+   • Great for announcements
+   • Permission-based access
+
+🔹 `/givepermission` - Grant tagall access
+   • Reply to user's message
+   • Admin/Group Admin only
+
+🔹 `/removepermission` - Revoke tagall access
+   • Reply to user's message
+   • Admin/Group Admin only
+
+🔹 `/goodmorning` - Setup morning wishes
+   • Auto-send greetings at 6 AM
+   • Customizable message
+   • Admin/Group Admin only
+
+🔹 `/removegoodmorning` - Disable morning wishes
+   • Turn off auto-greetings
+   • Admin/Group Admin only
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 **NEET SCORING PATTERN**
+
+✅ Correct Answer: **+4 marks**
+❌ Wrong Answer: **-1 mark**
+⚪ Not Attempted: **0 marks**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 **SUBJECTS COVERED**
+
+🧬 Biology (Class 11 & 12)
+⚛️ Physics (Class 11 & 12)
+🧪 Chemistry (Class 11 & 12)
+
+✨ All from NCERT textbooks & NEET PYQs (2015-2024)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 **QUICK TIPS**
+
+• Questions are from authentic NEET papers
+• All quizzes follow NEET exam pattern
+• Interactive polls for better engagement
+• Instant feedback on answers
+• Perfect for group study sessions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🆘 Need Support? Use /botsupport
+📢 Stay Updated: @DrQuizRobotUpdates
+👨‍💻 Developer: @Aman_personalBot
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 **Start Your NEET Journey Today!**
+Type /start to begin creating quizzes!
+
+【~@DrQuizRobot】
 """
     await update.message.reply_text(help_text)
+
+@check_force_join
+async def botsupport_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send bot support message with button to contact developer."""
+    support_message = """
+🆘 **Need Help with the Bot?**
+
+Having issues or questions about NEET Quizzing Bot?
+
+Our developer is here to help you! 👨‍💻
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 **Common Issues We Can Help With:**
+
+• Bot not responding to commands
+• Quiz generation problems
+• Group setup assistance
+• Feature requests
+• Bug reports
+• General questions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💬 Click the button below to contact our developer directly for personalized support!
+
+【~@DrQuizRobot】
+"""
+    
+    keyboard = [
+        [InlineKeyboardButton("👨‍💻 Contact Developer", url="https://t.me/Aman_personalBot")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(support_message, reply_markup=reply_markup)
 
 @check_force_join
 async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -187,9 +330,15 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if not context.args or len(context.args) < 2:
             await update.message.reply_text(
-                "❌ Invalid format!\n\n"
-                "Usage: /cquiz [chapter name] [number of questions]\n"
-                "Example: /cquiz Human Physiology 5"
+                "╔═══════════════════════════════╗\n"
+                "║      ❌ INVALID FORMAT ❌       ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "📝 **Usage:**\n"
+                "/cquiz [chapter name] [number]\n\n"
+                "📖 **Example:**\n"
+                "• /cquiz Human Physiology 5\n"
+                "• /cquiz Thermodynamics 10\n\n"
+                "【~@DrQuizRobot】"
             )
             return
         
@@ -201,15 +350,24 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             num_questions = int(num_questions_str)
         except ValueError:
             await update.message.reply_text(
-                f"❌ Invalid number of questions: '{num_questions_str}'\n"
-                "Please provide a number between 1 and 20."
+                "╔═══════════════════════════════╗\n"
+                "║    ❌ INVALID NUMBER ❌         ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                f"🔢 You entered: '{num_questions_str}'\n\n"
+                "✅ Please provide a number between 1 and 20.\n\n"
+                "【~@DrQuizRobot】"
             )
             return
         
         if num_questions < MIN_QUESTIONS or num_questions > MAX_QUESTIONS:
             await update.message.reply_text(
-                f"❌ Number of questions must be between {MIN_QUESTIONS} and {MAX_QUESTIONS}.\n"
-                f"You requested: {num_questions}"
+                "╔═══════════════════════════════╗\n"
+                "║   ⚠️ OUT OF RANGE ⚠️          ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                f"🔢 You requested: **{num_questions}** questions\n\n"
+                f"✅ Valid range: **{MIN_QUESTIONS} - {MAX_QUESTIONS}** questions\n\n"
+                "Please choose a number within the range.\n\n"
+                "【~@DrQuizRobot】"
             )
             return
         
@@ -218,8 +376,14 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         language = language_manager.get_language(chat_id)
         
         await update.message.reply_text(
-            f"🔄 Generating {num_questions} NEET-level questions for '{chapter}'...\n"
-            f"Please wait a moment... 【~@DrQuizRobot】"
+            "╔═══════════════════════════════╗\n"
+            "║   ⚡ QUIZ GENERATION ⚡        ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            f"📚 Chapter: **{chapter}**\n"
+            f"📝 Questions: **{num_questions}**\n\n"
+            "🔄 Generating NEET-level questions...\n"
+            "⏳ Please wait a moment...\n\n"
+            "【~@DrQuizRobot】"
         )
         
         logger.info(f"Generating quiz: chapter='{chapter}', questions={num_questions}, language={language}")
@@ -227,7 +391,15 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if not questions:
             await update.message.reply_text(
-                "❌ Failed to generate questions. Please try again with a different chapter name."
+                "╔═══════════════════════════════╗\n"
+                "║   ❌ GENERATION FAILED ❌      ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "😔 Could not generate questions\n\n"
+                "💡 **Try:**\n"
+                "• Check chapter name spelling\n"
+                "• Use NCERT Class 11/12 chapters\n"
+                "• Try a different topic\n\n"
+                "【~@DrQuizRobot】"
             )
             return
         
@@ -267,20 +439,38 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stats_manager.record_quiz(len(questions))
         
         await update.message.reply_text(
-            f"✅ Quiz complete! {len(questions)} questions sent.\n"
-            f"Chapter: {chapter} 【~@DrQuizRobot】"
+            "╔═══════════════════════════════╗\n"
+            "║    ✅ QUIZ COMPLETE! ✅         ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            f"🎉 Successfully sent **{len(questions)}** questions!\n\n"
+            f"📚 Chapter: **{chapter}**\n\n"
+            "🎯 Answer all questions carefully!\n"
+            "🏆 Good luck with your preparation!\n\n"
+            "【~@DrQuizRobot】"
         )
         
     except ValueError as e:
         logger.error(f"Value error in create_quiz: {e}")
         await update.message.reply_text(
-            "❌ Failed to generate quiz. Please check the chapter name and try again.\n"
-            "Make sure it's a valid NCERT Class 11/12 chapter."
+            "╔═══════════════════════════════╗\n"
+            "║   ❌ GENERATION FAILED ❌      ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "😔 Could not generate quiz\n\n"
+            "💡 **Please check:**\n"
+            "• Chapter name is correct\n"
+            "• It's from NCERT Class 11/12\n"
+            "• Spelling is accurate\n\n"
+            "【~@DrQuizRobot】"
         )
     except Exception as e:
         logger.error(f"Error in create_quiz: {e}")
         await update.message.reply_text(
-            "❌ An error occurred while generating the quiz. Please try again later."
+            "╔═══════════════════════════════╗\n"
+            "║      ❌ ERROR ❌               ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "⚠️ An unexpected error occurred\n\n"
+            "🔄 Please try again in a moment\n\n"
+            "【~@DrQuizRobot】"
         )
 
 @check_force_join
@@ -292,19 +482,30 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         if quiz_session_manager.has_active_session(chat_id):
             await update.message.reply_text(
-                "⚠️ A quiz is already running in this chat!\n\n"
-                "Please wait for it to finish or use /stopquiz to cancel it.\n\n"
+                "╔═══════════════════════════════╗\n"
+                "║   ⚠️ QUIZ ALREADY ACTIVE ⚠️   ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "🎮 A quiz is already running!\n\n"
+                "⏳ Please wait for it to finish\n"
+                "🛑 Or use /stopquiz to cancel\n\n"
                 "【~@DrQuizRobot】"
             )
             return
         
         if not context.args or len(context.args) < 1:
             await update.message.reply_text(
-                "❌ Invalid format!\n\n"
-                "Usage: /quiz [chapter name]\n\n"
-                "Example: /quiz Human Physiology\n"
-                "Example: /quiz Thermodynamics\n\n"
-                "This will start a 20-question timed quiz with 45 seconds per question.\n\n"
+                "╔═══════════════════════════════╗\n"
+                "║      ❌ INVALID FORMAT ❌       ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "📝 **Usage:**\n"
+                "/quiz [chapter name]\n\n"
+                "📖 **Examples:**\n"
+                "• /quiz Human Physiology\n"
+                "• /quiz Thermodynamics\n\n"
+                "ℹ️ **Info:**\n"
+                "• 20 questions per quiz\n"
+                "• 45 seconds per question\n"
+                "• Leaderboard at the end\n\n"
                 "【~@DrQuizRobot】"
             )
             return
@@ -315,14 +516,18 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         quiz_mode = "instant advance" if is_private_chat else "timer-based"
         await update.message.reply_text(
-            f"🎯 Starting Timed Quiz Session!\n\n"
-            f"📚 Chapter: {chapter}\n"
-            f"📝 Questions: 20\n"
-            f"⏱️ Time per question: 45 seconds\n"
-            f"{'⚡ Instant advance after answering!' if is_private_chat else '🔄 Auto-advance after timer expires!'}\n"
-            f"🏆 Leaderboard at the end!\n\n"
-            f"⚡ Generating NEET PYQ & NCERT questions...\n\n"
-            f"【~@DrQuizRobot】"
+            "╔═══════════════════════════════╗\n"
+            "║  🎯 TIMED QUIZ SESSION 🎯     ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            f"📚 **Chapter:** {chapter}\n"
+            f"📝 **Questions:** 20\n"
+            f"⏱️ **Time:** 45 seconds/question\n"
+            f"{'⚡ **Mode:** Instant advance' if is_private_chat else '🔄 **Mode:** Auto-advance'}\n"
+            f"🏆 **Leaderboard:** Yes\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "⚡ Generating NEET PYQs...\n"
+            "⏳ Please wait...\n\n"
+            "【~@DrQuizRobot】"
         )
         
         logger.info(f"Generating 20 questions for timed quiz: chapter='{chapter}', language={language}, mode={quiz_mode}")
@@ -330,7 +535,14 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         if not questions or len(questions) < 20:
             await update.message.reply_text(
-                "❌ Failed to generate 20 questions. Please try again with a different chapter name.\n\n"
+                "╔═══════════════════════════════╗\n"
+                "║   ❌ GENERATION FAILED ❌      ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "😔 Could not generate 20 questions\n\n"
+                "💡 **Try:**\n"
+                "• Different chapter name\n"
+                "• Check spelling\n"
+                "• Use NCERT topics\n\n"
                 "【~@DrQuizRobot】"
             )
             return
@@ -339,12 +551,16 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         await update.message.reply_text(
             "╔═══════════════════════════════╗\n"
-            "║   🎮 **QUIZ STARTING NOW!** 🎮   ║\n"
+            "║   🎮 QUIZ STARTING NOW! 🎮    ║\n"
             "╚═══════════════════════════════╝\n\n"
-            "📢 Answer each question within 45 seconds!\n"
-            "🔄 Questions will auto-advance after timer expires\n"
-            "🏆 Your score will be tracked for the leaderboard!\n\n"
-            "Good luck! 🍀\n\n"
+            "🎯 **Instructions:**\n\n"
+            "⏱️ Answer within 45 seconds\n"
+            "🔄 Auto-advance after timer\n"
+            "🏆 Score tracked for leaderboard\n"
+            "📊 Real-time rankings\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🍀 **Good luck!**\n"
+            "💪 Give your best!\n\n"
             "【~@DrQuizRobot】"
         )
         
@@ -355,7 +571,11 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         logger.error(f"Error in timed_quiz_command: {e}", exc_info=True)
         await update.message.reply_text(
-            "❌ An error occurred while starting the quiz. Please try again later.\n\n"
+            "╔═══════════════════════════════╗\n"
+            "║      ❌ ERROR ❌               ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "⚠️ Could not start quiz\n\n"
+            "🔄 Please try again later\n\n"
             "【~@DrQuizRobot】"
         )
         if quiz_session_manager.has_active_session(update.effective_chat.id):
@@ -405,7 +625,12 @@ async def send_next_question(update: Update, context: ContextTypes.DEFAULT_TYPE,
         logger.error(f"Error sending next question: {e}", exc_info=True)
         await context.bot.send_message(
             chat_id=chat_id,
-            text="❌ Error sending question. Ending quiz.\n\n【~@DrQuizRobot】"
+            text="╔═══════════════════════════════╗\n"
+                 "║      ❌ ERROR ❌               ║\n"
+                 "╚═══════════════════════════════╝\n\n"
+                 "⚠️ Error sending question\n\n"
+                 "🛑 Quiz ended\n\n"
+                 "【~@DrQuizRobot】"
         )
         quiz_session_manager.end_session(chat_id)
 
@@ -514,7 +739,11 @@ async def stop_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not quiz_session_manager.has_active_session(chat_id):
         await update.message.reply_text(
-            "❌ No active quiz session in this chat.\n\n"
+            "╔═══════════════════════════════╗\n"
+            "║    ❌ NO ACTIVE QUIZ ❌        ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "ℹ️ No quiz is running here\n\n"
+            "💡 Start one with: /quiz [chapter]\n\n"
             "【~@DrQuizRobot】"
         )
         return
@@ -522,8 +751,12 @@ async def stop_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quiz_session_manager.end_session(chat_id)
     
     await update.message.reply_text(
-        "🛑 Quiz session stopped!\n\n"
-        "You can start a new quiz anytime with /quiz [chapter name]\n\n"
+        "╔═══════════════════════════════╗\n"
+        "║   🛑 QUIZ STOPPED 🛑          ║\n"
+        "╚═══════════════════════════════╝\n\n"
+        "✅ Quiz session ended\n\n"
+        "🔄 Start new quiz anytime:\n"
+        "/quiz [chapter name]\n\n"
         "【~@DrQuizRobot】"
     )
 
@@ -536,8 +769,12 @@ async def end_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not session or not session.is_active:
         await update.message.reply_text(
-            "❌ No active timer quiz in this chat.\n\n"
-            "Use /quiz to start a timer quiz.\n\n"
+            "╔═══════════════════════════════╗\n"
+            "║    ❌ NO ACTIVE QUIZ ❌        ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "ℹ️ No timer quiz is running\n\n"
+            "💡 Start one with:\n"
+            "/quiz [chapter name]\n\n"
             "【~@DrQuizRobot】"
         )
         return
@@ -1066,10 +1303,17 @@ async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     current_lang_text = "Hindi (हिन्दी)" if current_language == 'hindi' else "English"
     
     await update.message.reply_text(
-        f"🌐 **Language Selection** 【~@DrQuizRobot】\n\n"
-        f"Current Language: {current_lang_text}\n\n"
-        f"Choose your preferred language for quiz questions:\n"
-        f"👇 Select a language below",
+        "╔═══════════════════════════════╗\n"
+        "║   🌐 LANGUAGE SETTINGS 🌐     ║\n"
+        "╚═══════════════════════════════╝\n\n"
+        f"📍 **Current Language:**\n{current_lang_text}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🔄 **Choose Your Preferred Language:**\n\n"
+        "• Questions will be in selected language\n"
+        "• Explanations will match your choice\n"
+        "• Settings saved per group/chat\n\n"
+        "👇 **Select Language Below:**\n\n"
+        "【~@DrQuizRobot】",
         reply_markup=reply_markup
     )
 
@@ -1098,7 +1342,11 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not is_authorized:
         await query.edit_message_text(
-            "❌ Only bot admins or group admins can change language settings."
+            "╔═══════════════════════════════╗\n"
+            "║   ❌ UNAUTHORIZED ❌           ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "🔒 Only admins can change language\n\n"
+            "【~@DrQuizRobot】"
         )
         return
     
@@ -1112,7 +1360,12 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         language_name = "English"
         language_emoji = "🇬🇧"
     else:
-        await query.edit_message_text("❌ Invalid language selection.")
+        await query.edit_message_text(
+            "╔═══════════════════════════════╗\n"
+            "║   ❌ INVALID SELECTION ❌      ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "【~@DrQuizRobot】"
+        )
         return
     
     # Set language preference
@@ -1121,10 +1374,17 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_type = "group" if update.effective_chat.type in ['group', 'supergroup'] else "chat"
     
     await query.edit_message_text(
-        f"✅ Language Updated! {language_emoji}\n\n"
-        f"Language set to: **{language_name}**\n\n"
-        f"All quiz questions in this {chat_type} will now be generated in {language_name}.\n\n"
-        f"【~@DrQuizRobot】"
+        "╔═══════════════════════════════╗\n"
+        "║   ✅ LANGUAGE UPDATED ✅       ║\n"
+        "╚═══════════════════════════════╝\n\n"
+        f"{language_emoji} **Language:** {language_name}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "✨ **What Changed:**\n\n"
+        f"• Quiz questions → {language_name}\n"
+        f"• Explanations → {language_name}\n"
+        f"• Settings saved for this {chat_type}\n\n"
+        "🎯 All quizzes will now be in your preferred language!\n\n"
+        "【~@DrQuizRobot】"
     )
 
 async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1466,9 +1726,15 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     content_type = 'text'
                 else:
                     await update.message.reply_text(
-                        "❌ Image explanations require a caption!\n\n"
-                        "Please add a caption to the image describing what you want to know, then reply with /explain.\n\n"
-                        "Example: Add caption 'What is this diagram showing?' to the image.\n\n"
+                        "╔═══════════════════════════════╗\n"
+                        "║   ❌ CAPTION REQUIRED ❌       ║\n"
+                        "╚═══════════════════════════════╝\n\n"
+                        "📸 Image needs a caption!\n\n"
+                        "💡 **How to:**\n"
+                        "1. Add caption to image\n"
+                        "2. Reply with /explain\n\n"
+                        "📝 **Example:**\n"
+                        "Caption: 'What is this diagram?'\n\n"
                         "【~@DrQuizRobot】"
                     )
                     return
@@ -1476,15 +1742,25 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Handle other message types
             else:
                 await update.message.reply_text(
-                    "❌ I can only explain text messages, quizzes, and polls.\n\n"
-                    "For images, please add a caption describing your question.\n\n"
+                    "╔═══════════════════════════════╗\n"
+                    "║   ❌ UNSUPPORTED TYPE ❌       ║\n"
+                    "╚═══════════════════════════════╝\n\n"
+                    "✅ **I can explain:**\n"
+                    "• Text messages\n"
+                    "• Quiz questions\n"
+                    "• Poll questions\n"
+                    "• Images with captions\n\n"
                     "【~@DrQuizRobot】"
                 )
                 return
             
             if not content_to_explain:
                 await update.message.reply_text(
-                    "❌ Could not extract content from the replied message.\n\n"
+                    "╔═══════════════════════════════╗\n"
+                    "║   ❌ NO CONTENT FOUND ❌       ║\n"
+                    "╚═══════════════════════════════╝\n\n"
+                    "😔 Could not extract content\n\n"
+                    "🔄 Try replying to different message\n\n"
                     "【~@DrQuizRobot】"
                 )
                 return
@@ -1496,22 +1772,31 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         else:
             await update.message.reply_text(
-                "❌ Invalid format!\n\n"
-                "Usage:\n"
-                "1️⃣ Direct question: /explain [your question or topic]\n"
-                "2️⃣ Reply to message: Reply to any message/quiz/poll/image with /explain\n\n"
-                "Examples:\n"
+                "╔═══════════════════════════════╗\n"
+                "║      ❌ INVALID FORMAT ❌       ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "📝 **How to use /explain:**\n\n"
+                "1️⃣ **Direct Question:**\n"
+                "/explain [your question]\n\n"
+                "2️⃣ **Reply to Message:**\n"
+                "Reply to quiz/poll with /explain\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "📖 **Examples:**\n\n"
                 "• /explain What is mitochondria?\n"
                 "• /explain Thermodynamics laws\n"
-                "• Reply to a quiz with: /explain\n\n"
+                "• Reply to quiz: /explain\n\n"
                 "【~@DrQuizRobot】"
             )
             return
         
         # Send "generating" message
         generating_msg = await update.message.reply_text(
-            "🔍 Generating detailed explanation...\n"
-            "Please wait a moment... 【~@DrQuizRobot】"
+            "╔═══════════════════════════════╗\n"
+            "║  🔍 GENERATING EXPLANATION 🔍 ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "⚡ AI is analyzing your question...\n"
+            "⏳ Please wait a moment...\n\n"
+            "【~@DrQuizRobot】"
         )
         
         # Generate explanation
@@ -1539,7 +1824,11 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in explain_command: {e}", exc_info=True)
         await update.message.reply_text(
-            "❌ An error occurred while generating the explanation. Please try again later.\n\n"
+            "╔═══════════════════════════════╗\n"
+            "║      ❌ ERROR ❌               ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "⚠️ Could not generate explanation\n\n"
+            "🔄 Please try again later\n\n"
             "【~@DrQuizRobot】"
         )
 
@@ -1554,6 +1843,7 @@ def main():
     # User commands
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("botsupport", botsupport_command))
     application.add_handler(CommandHandler("cquiz", create_quiz))
     application.add_handler(CommandHandler("quiz", timed_quiz_command))
     application.add_handler(CommandHandler("stopquiz", stop_quiz_command))

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple script to run the AUTO QUIZ CREATE BOT
+Simple script to run the NEET Quizzing Bot
 """
 
 if __name__ == '__main__':

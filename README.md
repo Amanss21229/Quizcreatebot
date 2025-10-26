@@ -1,4 +1,4 @@
-# AUTO QUIZ CREATE BOT 🎓
+# NEET Quizzing Bot 🎓
 
 A Telegram bot that generates NEET-relevant medical entrance exam questions from NCERT Class 11th and 12th textbooks using Google's Gemini AI.
 
