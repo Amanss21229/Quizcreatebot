@@ -82,6 +82,76 @@ PERSONALIZED_MESSAGES = [
     "🎀 {name} is a blessing! Lucky to have you around 🍀💙"
 ]
 
+# Funny, teasing, engaging questions for tagall
+TAGALL_QUESTIONS = [
+    "Bhai teri relationship ka kya hua? 💔",
+    "Aur kaisi hai yaar? 😏",
+    "Bhai teri wali to loyal thi na fir kya hua? 🤔",
+    "Kyu nhi ho rhi padhai? 📚😂",
+    "Bhai gym kab join karoge? 💪😅",
+    "Aaj kal online kyun nahi dikhte? 👻",
+    "Crush ka reply aaya ki nahi? 💘",
+    "Exam mein kitne number aaye the? 🎯",
+    "Netflix pe kya dekh rahe ho aaj kal? 📺",
+    "Subah uthte ho ya seedha lunch pe? ☀️😴",
+    "Last kab nahaye the bhai? 🚿😂",
+    "Crush ko propose kab karoge? 💕",
+    "Instagram pe kitne followers hai? 📱",
+    "Pizza या Burger? Choose one! 🍕🍔",
+    "Kal raat ko kya kar rahe the? 🌙👀",
+    "Apna ex miss hota hai? 💭",
+    "Sachi bolo, crush kon hai? 😍",
+    "2 AM tak phone pe kya karte ho? 📲",
+    "Salary kitni milti hai bhai? 💰😏",
+    "Shaadi kab karoge? 💍",
+    "Coffee ya Tea? ☕",
+    "Job lag gayi ki nahi? 💼",
+    "Ghar waale pareshan kar rahe hain? 😅",
+    "Aaj kal khaana kiske saath khate ho? 🍽️",
+    "Last kab kisi se jhagda hua? 😤",
+    "Sach bolo, kitni baar breakup hua? 💔",
+    "Apna type kya hai? 😏💕",
+    "Last kab kisi ko impress kiya? 😎",
+    "Favorite meme template kya hai? 😂",
+    "Kitne baje sote ho raat ko? 🌙",
+    "Morning person ho ya night owl? 🦉",
+    "Apni sabse badi galti kya thi? 🤦",
+    "Kya tumhe bhoot pe vishwas hai? 👻",
+    "Pehli salary pe kya liya tha? 💸",
+    "Sabse embarrassing moment kya tha? 😳",
+    "Phone ka screen time kitna hai? 📱👀",
+    "Last kab jhooth bola tha? 🤥",
+    "Apna childhood crush yaad hai? 💭💕",
+    "Sabse zyada kya spend karte ho? 💰",
+    "Gym jaate ho ya ghar pe workout? 🏋️",
+    "Cooking aati hai? 👨‍🍳",
+    "Pet paalte ho? Kya naam hai? 🐕",
+    "Height kitni hai sachhi? 📏😏",
+    "Gaadi hai ki nahi? 🚗",
+    "Sabse favorite song kaunsa hai? 🎵",
+    "LinkedIn pe active ho? 💼",
+    "Last kab kisi party mein gaye? 🎉",
+    "Apna biggest flex kya hai? 💅",
+    "Sapne mein kya dekhte ho? 💭😴",
+    "Subah breakfast karte ho? 🍳",
+    "Kitni languages aati hain? 🗣️",
+    "Favorite web series konsi hai? 📺",
+    "Kabhi fail hue exams mein? 📝",
+    "Apna lucky number kya hai? 🍀",
+    "Last vacation kab gaye the? ✈️",
+    "Kitne dost hain sachche wale? 👥",
+    "Apna biggest fear kya hai? 😱",
+    "Shaadi fixed hai kya? 💍😏",
+    "Kitne din se haircut nahi karwaya? ✂️",
+    "Mom-dad se kitni baar daant padte ho? 😅",
+    "Piggy bank mein kitne paise hain? 🐷💰",
+    "Best compliment jo mili ho? 🥰"
+]
+
 def get_personalized_message_template():
     """Get a random personalized message template with {name} placeholder."""
     return random.choice(PERSONALIZED_MESSAGES)
+
+def get_tagall_question():
+    """Get a random funny question for tagall."""
+    return random.choice(TAGALL_QUESTIONS)

@@ -1120,7 +1120,7 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tag all group members with personalized fun messages."""
+    """Tag all group members with funny questions."""
     chat = update.effective_chat
     user_id = update.effective_user.id
     
@@ -1158,15 +1158,16 @@ async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        await update.message.reply_text(
-            "🎯 Starting to tag all members with fun personalized messages...\n\n"
-            "Please wait... 【~@DrQuizRobot】"
-        )
-        
-        # Get all chat administrators (due to Telegram API limitations, we can only get admins)
+        # Get all chat administrators
         administrators = await context.bot.get_chat_administrators(chat.id)
         
-        # Collect all members (excluding bots and anonymous)
+        # Get admin IDs to exclude them
+        admin_ids = set()
+        for admin in administrators:
+            if not admin.user.is_bot:
+                admin_ids.add(admin.user.id)
+        
+        # Collect all members (excluding bots, anonymous, and admins)
         members_to_tag = []
         for admin in administrators:
             # Skip bots
@@ -1176,60 +1177,45 @@ async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Skip anonymous admins  
             if hasattr(admin, 'is_anonymous') and admin.is_anonymous:
                 continue
+            
+            # Skip admins (creator and administrators)
+            if admin.status in ['creator', 'administrator']:
+                continue
                 
             members_to_tag.append(admin.user)
         
-        # Track tagged users
-        tagged_count = 0
-        failed_count = 0
+        # If no non-admin members found, inform user
+        if not members_to_tag:
+            await update.message.reply_text(
+                "⚠️ No non-admin members found to tag!\n\n"
+                "Note: Due to Telegram limitations, only recently active members can be detected."
+            )
+            return
         
-        # Tag each member with personalized message
-        for member in members_to_tag:
-            try:
-                # Get user's first name
+        # Shuffle to randomize questions
+        import random
+        random.shuffle(members_to_tag)
+        
+        # Tag members in batches of 15
+        batch_size = 15
+        for i in range(0, len(members_to_tag), batch_size):
+            batch = members_to_tag[i:i + batch_size]
+            
+            # Build message with user mentions and questions
+            message_parts = []
+            for member in batch:
                 user_first_name = member.first_name
-                
-                # Create mention link
                 user_mention = f"[{user_first_name}](tg://user?id={member.id})"
+                question = get_tagall_question()
                 
-                # Get personalized message template from helper function
-                message_template = get_personalized_message_template()
-                
-                # Replace {name} with mention
-                message = message_template.replace("{name}", user_mention)
-                message += f"\n\n【~@DrQuizRobot】"
-                
-                await update.message.reply_text(
-                    message,
-                    parse_mode='Markdown'
-                )
-                tagged_count += 1
-                
-            except Exception as e:
-                failed_count += 1
-                logger.error(f"Failed to tag user {admin.user.id}: {e}")
-        
-        # Try to get recent members from chat (limited by Telegram API)
-        # Note: Full member list requires chat admin permissions and may not work for large groups
-        try:
-            # For smaller groups, we can try to get chat members
-            # This is limited and may not work for all groups
-            chat_member_count = await context.bot.get_chat_member_count(chat.id)
+                message_parts.append(f"{user_mention} : {question}")
+            
+            # Join with double newline for margin
+            message = "\n\n".join(message_parts)
             
             await update.message.reply_text(
-                f"✅ Tagging Complete! 【~@DrQuizRobot】\n\n"
-                f"📊 Summary:\n"
-                f"✅ Tagged: {tagged_count} members\n"
-                f"📈 Total Members: {chat_member_count}\n\n"
-                f"💡 Note: Due to Telegram limitations, only administrators and recently active members can be tagged.\n\n"
-                f"【~@DrQuizRobot】"
-            )
-        except:
-            await update.message.reply_text(
-                f"✅ Tagging Complete! 【~@DrQuizRobot】\n\n"
-                f"📊 Tagged: {tagged_count} members\n"
-                f"❌ Failed: {failed_count}\n\n"
-                f"【~@DrQuizRobot】"
+                message,
+                parse_mode='Markdown'
             )
             
     except Exception as e:
