@@ -6,7 +6,25 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
-**October 26, 2025**:
+**October 26, 2025** (Latest Update):
+- ✅ **NEET Scoring Pattern Implemented**
+  - Correct answers now give +4 marks (instead of +1)
+  - Wrong answers now give -1 mark (instead of 0)
+  - Unattempted questions give 0 marks
+  - Added NEET scoring constants to `config.py`
+  - Updated `quiz_session_manager.py` to use NEET scoring pattern
+- ✅ **NEW COMMAND**: `/end` - End Timer Quiz Early
+  - Works only during active timer quiz sessions
+  - Stops the quiz immediately and shows leaderboard
+  - Displays results for questions answered so far
+  - Cancels auto-advance task gracefully
+- ✅ **Updated Help Command**
+  - Added documentation for `/end` command
+  - Explained NEET scoring pattern to users
+  - Improved command examples and formatting
+- ✅ **Fixed** `finalize_quiz` function to use actual question count instead of hardcoded 20
+
+**October 26, 2025** (Earlier):
 - ✅ **NEW FEATURE**: Timed Quiz Sessions with Leaderboard
   - Added `/quiz [chapter]` command for 20-question timed quiz sessions
   - Each question has 45-second timer with auto-advance
