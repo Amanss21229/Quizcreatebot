@@ -2,11 +2,13 @@ import logging
 import random
 import asyncio
 import time
+import os
 from functools import wraps
 from datetime import datetime, time as dt_time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, PollAnswerHandler, filters, ContextTypes
 from bot.config import TELEGRAM_BOT_TOKEN, MIN_QUESTIONS, MAX_QUESTIONS, ADMIN_USER_IDS
+from aiohttp import web
 from bot.quiz_generator import QuizGenerator
 from bot.force_join import force_join_manager
 from bot.stats_manager import stats_manager
@@ -2277,7 +2279,48 @@ def main():
     )
     
     logger.info("Bot is starting...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    
+    # Check if we need to run a web server for health checks (for platforms like Render)
+    port = os.environ.get('PORT')
+    if port:
+        # Run web server alongside bot polling for platforms that require a port
+        asyncio.run(run_with_webserver(application, int(port)))
+    else:
+        # Just run polling (for local development or platforms that don't need a port)
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+async def health_check(request):
+    """Health check endpoint for web service platforms."""
+    return web.Response(text="Bot is running!")
+
+async def run_with_webserver(application, port):
+    """Run the Telegram bot polling alongside a web server for health checks."""
+    # Start the telegram application
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    
+    # Create and start web server
+    app = web.Application()
+    app.router.add_get('/', health_check)
+    app.router.add_get('/health', health_check)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    
+    logger.info(f"Starting web server on port {port}...")
+    await site.start()
+    logger.info(f"Web server started! Health check available at http://0.0.0.0:{port}/health")
+    
+    # Keep running
+    try:
+        await asyncio.Event().wait()
+    finally:
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
+        await runner.cleanup()
 
 if __name__ == '__main__':
     main()
