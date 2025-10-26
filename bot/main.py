@@ -1158,67 +1158,37 @@ async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        # Note: Due to Telegram API limitations, we can only get members who are:
-        # 1. Administrators
-        # 2. Recently active (sent messages recently)
-        # Full member list is not available through bot API
+        # Get tracked members from database (members who have sent messages)
+        members_data = tagall_manager.get_members_for_tagging(chat.id, exclude_admins=True)
         
-        # Get all chat members we can access
-        administrators = await context.bot.get_chat_administrators(chat.id)
-        
-        # Collect all members (excluding bots and anonymous)
-        all_members = []
-        admin_ids = set()
-        
-        for admin in administrators:
-            # Track admin IDs
-            if admin.status in ['creator', 'administrator'] and not admin.user.is_bot:
-                admin_ids.add(admin.user.id)
-            
-            # Skip bots
-            if admin.user.is_bot:
-                continue
-            
-            # Skip anonymous admins  
-            if hasattr(admin, 'is_anonymous') and admin.is_anonymous:
-                continue
-                
-            all_members.append((admin.user, admin.status))
-        
-        # Separate into admins and non-admins
-        non_admin_members = []
-        for member, status in all_members:
-            if member.id not in admin_ids:
-                non_admin_members.append(member)
-        
-        # Only tag non-admin members (exclude admins completely)
-        members_to_tag = non_admin_members
-        
-        if not members_to_tag:
+        if not members_data:
+            total_tracked = tagall_manager.get_member_count(chat.id)
             await update.message.reply_text(
-                "⚠️ No non-admin members found to tag!\n\n"
-                "📌 Due to Telegram API limitations:\n"
-                "• Bot can only detect members who have recently sent messages in the group\n"
-                "• Full member list is not accessible through Telegram Bot API\n"
-                "• Only admins are visible by default\n\n"
-                "💡 Tip: Ask group members to send at least one message, then try /tagall again!"
+                f"⚠️ No non-admin members tracked yet!\n\n"
+                f"📊 Total tracked members: {total_tracked} (all are admins)\n\n"
+                f"💡 How it works:\n"
+                f"• Bot tracks users who send messages in this group\n"
+                f"• Ask group members to send at least one message\n"
+                f"• Then use /tagall to tag them all!\n\n"
+                f"Note: Admins are excluded from tagging to avoid spam."
             )
             return
         
         # Shuffle to randomize questions
         import random
-        random.shuffle(members_to_tag)
+        random.shuffle(members_data)
         
         # Tag members in batches of 15
         batch_size = 15
-        for i in range(0, len(members_to_tag), batch_size):
-            batch = members_to_tag[i:i + batch_size]
+        for i in range(0, len(members_data), batch_size):
+            batch = members_data[i:i + batch_size]
             
             # Build message with user mentions and questions
             message_parts = []
-            for member in batch:
-                user_first_name = member.first_name
-                user_mention = f"[{user_first_name}](tg://user?id={member.id})"
+            for member_data in batch:
+                user_id = member_data['user_id']
+                user_first_name = member_data['first_name']
+                user_mention = f"[{user_first_name}](tg://user?id={user_id})"
                 question = get_tagall_question()
                 
                 message_parts.append(f"{user_mention} : {question}")
@@ -1230,6 +1200,12 @@ async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message,
                 parse_mode='Markdown'
             )
+        
+        # Send summary
+        await update.message.reply_text(
+            f"✅ Tagged {len(members_data)} members with funny questions! 🎯\n\n"
+            f"【~@DrQuizRobot】"
+        )
             
     except Exception as e:
         logger.error(f"Error in tagall command: {e}")
@@ -1333,6 +1309,42 @@ async def anonymous_verification_callback(update: Update, context: ContextTypes.
         bot=context.bot
     )
 
+async def track_group_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Track all users who send messages in groups for tagall functionality."""
+    try:
+        # Only track in groups
+        if update.effective_chat.type not in ['group', 'supergroup']:
+            return
+        
+        # Skip if no user
+        if not update.effective_user:
+            return
+        
+        user = update.effective_user
+        chat_id = update.effective_chat.id
+        
+        # Check if user is admin
+        is_admin = False
+        try:
+            member = await context.bot.get_chat_member(chat_id, user.id)
+            if member.status in ['creator', 'administrator']:
+                is_admin = True
+        except:
+            pass
+        
+        # Track the member
+        tagall_manager.track_member(
+            chat_id=chat_id,
+            user_id=user.id,
+            first_name=user.first_name,
+            username=user.username,
+            is_admin=is_admin,
+            is_bot=user.is_bot
+        )
+        
+    except Exception as e:
+        logger.error(f"Error tracking group member: {e}")
+
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by updates."""
     logger.error(f"Update {update} caused error {context.error}")
@@ -1372,6 +1384,9 @@ def main():
     
     # New member handler
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
+    
+    # Track all group messages for tagall functionality
+    application.add_handler(MessageHandler(filters.ALL, track_group_members), group=1)
     
     # Poll answer handler for timed quiz
     application.add_handler(PollAnswerHandler(handle_poll_answer))
