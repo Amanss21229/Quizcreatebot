@@ -136,11 +136,12 @@ class AnonymousAdminVerifier:
             update = pending['update']
             context = pending['context']
             
-            # Update the effective user to the verified user
+            # Update the effective user to the verified user (from callback query)
             # This is a workaround to make the command think it came from the verified user
-            if update.message:
+            if update.message and query.from_user:
                 update.message._unfreeze()
-                update._effective_user = await bot.get_chat(user_id)
+                update._effective_user = query.from_user
+                update.message.from_user = query.from_user
                 update.message._freeze()
             
             # Execute the command

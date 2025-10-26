@@ -6,7 +6,15 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
-**October 26, 2025** (Latest Update - Part 6):
+**October 26, 2025** (Latest Update - Part 7):
+- ✅ **FIXED**: Anonymous Admin Verification Bug
+  - Fixed critical bug where verified anonymous admins were still shown as "not admin"
+  - Issue: Code was assigning Chat object instead of User object to effective_user
+  - Now properly uses verified user from callback query (query.from_user)
+  - Anonymous group owners can now successfully use admin commands after verification
+  - Updated `anonymous_verifier.py` to correctly handle user object assignment
+
+**October 26, 2025** (Part 6):
 - ✅ **QUIZ MUTUAL EXCLUSION**: Implemented Quiz Lock Manager
   - Only one quiz can run at a time per group/chat (whether /cquiz or /quiz)
   - Created `quiz_lock_manager.py` for centralized quiz concurrency control
