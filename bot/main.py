@@ -3,7 +3,7 @@ import random
 import asyncio
 import time
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, time as dt_time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, PollAnswerHandler, filters, ContextTypes
 from bot.config import TELEGRAM_BOT_TOKEN, MIN_QUESTIONS, MAX_QUESTIONS, ADMIN_USER_IDS
@@ -18,6 +18,7 @@ from bot.tagall_manager import tagall_manager
 from bot.anonymous_verifier import anonymous_verifier
 from bot.quiz_session_manager import quiz_session_manager
 from bot.leaderboard_generator import generate_leaderboard_message, generate_quiz_complete_message
+from bot.good_morning_manager import good_morning_manager
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -1368,6 +1369,67 @@ async def refresh_admin_cache(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in admin cache refresh: {e}")
 
+async def send_good_morning_wishes(context: ContextTypes.DEFAULT_TYPE):
+    """Send good morning wishes to all users and groups daily at 6 AM IST."""
+    try:
+        logger.info("Starting good morning wishes broadcast...")
+        
+        # Get all tracked users and groups from stats
+        all_users = stats_manager.users
+        all_groups = stats_manager.groups
+        
+        success_count = 0
+        fail_count = 0
+        
+        # Send to all groups
+        for group_id in all_groups:
+            try:
+                # Get language preference for the group
+                language = language_manager.get_language(group_id)
+                message = good_morning_manager.generate_good_morning_message(language)
+                
+                await context.bot.send_message(
+                    chat_id=group_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+                success_count += 1
+                logger.info(f"Sent good morning to group {group_id}")
+                
+                # Small delay to avoid rate limiting
+                await asyncio.sleep(0.1)
+                
+            except Exception as e:
+                fail_count += 1
+                logger.error(f"Error sending good morning to group {group_id}: {e}")
+        
+        # Send to all users (private chats)
+        for user_id in all_users:
+            try:
+                # Get language preference for the user
+                language = language_manager.get_language(user_id)
+                message = good_morning_manager.generate_good_morning_message(language)
+                
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+                success_count += 1
+                logger.info(f"Sent good morning to user {user_id}")
+                
+                # Small delay to avoid rate limiting
+                await asyncio.sleep(0.1)
+                
+            except Exception as e:
+                fail_count += 1
+                logger.error(f"Error sending good morning to user {user_id}: {e}")
+        
+        logger.info(f"Good morning broadcast completed. Success: {success_count}, Failed: {fail_count}")
+        
+    except Exception as e:
+        logger.error(f"Error in good morning wishes broadcast: {e}")
+
 @check_force_join
 async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Explain any question, topic, or reply to a message/quiz/poll/image."""
@@ -1537,6 +1599,14 @@ def main():
     
     # Schedule periodic admin cache refresh (every 5 minutes)
     application.job_queue.run_repeating(refresh_admin_cache, interval=300, first=60)
+    
+    # Schedule daily good morning wishes at 6:00 AM IST (00:30 UTC)
+    # IST is UTC+5:30, so 6:00 AM IST = 00:30 UTC
+    application.job_queue.run_daily(
+        send_good_morning_wishes,
+        time=dt_time(hour=0, minute=30, second=0),
+        days=(0, 1, 2, 3, 4, 5, 6)
+    )
     
     logger.info("Bot is starting...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
