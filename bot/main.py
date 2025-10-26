@@ -22,6 +22,7 @@ from bot.quiz_session_manager import quiz_session_manager
 from bot.leaderboard_generator import generate_leaderboard_message, generate_quiz_complete_message
 from bot.good_morning_manager import good_morning_manager
 from bot.quiz_lock_manager import quiz_lock_manager
+from bot.live_quiz_manager import live_quiz_coordinator
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -911,6 +912,36 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         option_id = option_ids[0]
         
+        if live_quiz_coordinator.has_active_session():
+            live_session = live_quiz_coordinator.active_session
+            
+            for group_id, group_state in live_session.group_states.items():
+                if poll_id in group_state.poll_ids:
+                    poll_index = group_state.poll_ids.index(poll_id)
+                    question = live_session.questions[poll_index]
+                    is_correct = (option_id == question['correct_option_index'])
+                    
+                    try:
+                        chat = await context.bot.get_chat(group_id)
+                        group_title = chat.title or f"Group {group_id}"
+                    except:
+                        group_title = f"Group {group_id}"
+                    
+                    time_taken = 1.0
+                    
+                    live_session.record_answer(
+                        user.id,
+                        user.username,
+                        user.first_name,
+                        group_id,
+                        group_title,
+                        is_correct,
+                        time_taken
+                    )
+                    
+                    logger.info(f"Recorded live quiz answer from {user.first_name} (ID: {user.id}) in group {group_id}, correct: {is_correct}")
+                    return
+        
         session = quiz_session_manager.get_session_by_poll(poll_id)
         
         if not session:
@@ -1418,6 +1449,87 @@ async def adminlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message += f"📊 Total Admins: {len(all_admins)}"
     
     await update.message.reply_text(message)
+
+@admin_only
+async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start a global live quiz across all groups (admin only)."""
+    if live_quiz_coordinator.has_active_session():
+        await update.message.reply_text(
+            "⚠️ A global live quiz is already in progress!\n\n"
+            "Please wait for the current session to complete before starting a new one."
+        )
+        return
+    
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "❌ Invalid format!\n\n"
+            "Usage: /startlivequiz <chapter name>\n\n"
+            "Example: /startlivequiz Thermodynamics\n"
+            "Example: /startlivequiz Human Physiology\n\n"
+            "This will start a global live quiz with 20 questions across ALL groups!"
+        )
+        return
+    
+    chapter = ' '.join(context.args)
+    admin_id = update.effective_user.id
+    
+    await update.message.reply_text(
+        f"🔄 Generating quiz for chapter: **{chapter}**\n\n"
+        f"Please wait while I prepare 20 NEET-level questions..."
+    )
+    
+    try:
+        questions = quiz_gen.generate_quiz(chapter, 20, 'english')
+        
+        if not questions:
+            await update.message.reply_text(
+                f"❌ Failed to generate questions for chapter: {chapter}\n\n"
+                f"Please check the chapter name and try again."
+            )
+            return
+        
+        session = live_quiz_coordinator.create_session(chapter, questions, admin_id)
+        
+        all_groups = list(stats_manager.get_all_groups())
+        
+        if not all_groups:
+            await update.message.reply_text(
+                "⚠️ No groups found!\n\n"
+                "The bot needs to be added to groups first before starting a global quiz."
+            )
+            return
+        
+        await update.message.reply_text(
+            f"✅ Quiz generated successfully!\n\n"
+            f"📚 Chapter: {chapter}\n"
+            f"📝 Questions: 20 MCQs\n"
+            f"🌍 Target Groups: {len(all_groups)} groups\n\n"
+            f"⏰ Sending 5-minute countdown now..."
+        )
+        
+        sent_count = await live_quiz_coordinator.send_countdown_reminder(
+            context, all_groups, chapter
+        )
+        
+        await update.message.reply_text(
+            f"✅ Countdown sent to {sent_count}/{len(all_groups)} groups!\n\n"
+            f"⏱️ Quiz will start in 5 minutes...\n\n"
+            f"Global leaderboard will be shared after quiz completion!"
+        )
+        
+        session.countdown_task = asyncio.create_task(
+            live_quiz_coordinator.start_quiz_after_countdown(
+                context, session, all_groups, quiz_gen, 
+                quiz_lock_manager, stats_manager
+            )
+        )
+        
+    except Exception as e:
+        logger.error(f"Error starting live quiz: {e}", exc_info=True)
+        await update.message.reply_text(
+            f"❌ Error starting live quiz: {str(e)}\n\n"
+            f"Please try again or contact support."
+        )
 
 @bot_or_group_admin_only
 async def welcomeon_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2218,6 +2330,7 @@ def main():
     application.add_handler(CommandHandler("promote", promote_command))
     application.add_handler(CommandHandler("remove", remove_admin_command))
     application.add_handler(CommandHandler("adminlist", adminlist_command))
+    application.add_handler(CommandHandler("startlivequiz", startlivequiz_command))
     
     # Welcome commands (bot admin or group admin)
     application.add_handler(CommandHandler("welcomeon", welcomeon_command))
