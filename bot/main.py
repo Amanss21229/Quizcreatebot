@@ -1400,15 +1400,22 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Handle image with caption
             elif replied_message.photo:
                 if replied_message.caption:
-                    content_to_explain = f"Image with caption: {replied_message.caption}"
+                    content_to_explain = replied_message.caption
+                    content_type = 'text'
                 else:
-                    content_to_explain = "This is an image. Please describe what you want to know about it or add a question with the /explain command."
-                content_type = 'image_description'
+                    await update.message.reply_text(
+                        "❌ Image explanations require a caption!\n\n"
+                        "Please add a caption to the image describing what you want to know, then reply with /explain.\n\n"
+                        "Example: Add caption 'What is this diagram showing?' to the image.\n\n"
+                        "【~@DrQuizRobot】"
+                    )
+                    return
             
             # Handle other message types
             else:
                 await update.message.reply_text(
-                    "❌ I can only explain text messages, quizzes, polls, or images with captions.\n\n"
+                    "❌ I can only explain text messages, quizzes, and polls.\n\n"
+                    "For images, please add a caption describing your question.\n\n"
                     "【~@DrQuizRobot】"
                 )
                 return
