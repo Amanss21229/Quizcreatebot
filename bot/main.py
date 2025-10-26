@@ -823,6 +823,7 @@ async def stop_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     quiz_session_manager.end_session(chat_id)
+    quiz_lock_manager.release_lock(chat_id)
     
     await update.message.reply_text(
         "╔═══════════════════════════════╗\n"

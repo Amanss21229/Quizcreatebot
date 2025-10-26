@@ -15,6 +15,7 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
   - Proper lock acquisition and release in all success and error paths
   - Prevents race conditions and ensures clean quiz state management
   - Production-ready with defensive error handling and lock leak prevention
+  - **Fixed lock leak bug**: `/stopquiz` now properly releases quiz lock
 
 **October 26, 2025** (Latest Update - Part 5):
 - ✅ **NEW FEATURE**: Daily Good Morning Wishes at 6 AM IST
