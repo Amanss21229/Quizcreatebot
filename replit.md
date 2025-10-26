@@ -6,6 +6,21 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
+**October 26, 2025** (Latest Update - Part 8):
+- ✅ **NEW FEATURE**: Global Live Quiz System
+  - Bot admins can run synchronized quizzes across ALL groups simultaneously using `/startlivequiz <chapter>`
+  - 5-minute countdown reminder sent to all groups before quiz starts
+  - 20 questions broadcast simultaneously to all participating groups
+  - 45-second timer per question with synchronized auto-advance
+  - Real-time participant tracking across all groups globally
+  - Unified global leaderboard showing rank, marks, attempts, accuracy, and time
+  - NEET scoring pattern: +4 correct, -1 wrong, 0 unattempted
+  - Poll-to-question mapping system for reliable answer tracking
+  - Automatic cleanup of poll mappings to prevent memory leaks
+  - Integrates with quiz lock manager to prevent concurrent quizzes
+  - Created `live_quiz_manager.py` with LiveQuizCoordinator and LiveQuizSession classes
+  - Beautiful decorated global leaderboard broadcast to all groups after completion
+
 **October 26, 2025** (Latest Update - Part 7):
 - ✅ **FIXED**: Anonymous Admin Verification Bug
   - Fixed critical bug where verified anonymous admins were still shown as "not admin"
