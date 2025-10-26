@@ -154,16 +154,23 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /quiz [chapter] - Start 20-question timer quiz (NEET pattern)
 /end - End timer quiz early & show leaderboard
 /stopquiz - Stop quiz without leaderboard
+/explain [question/topic] - Get detailed explanation
+/explain (reply to message) - Explain any message/quiz/poll
 
 Examples:
 • /cquiz Human Physiology 5
 • /quiz Thermodynamics
-• /end (during timer quiz)
+• /explain What is mitochondria?
+• Reply to quiz with: /explain
 
 🎯 NEET Scoring Pattern:
 • Correct Answer: +4 marks
 • Wrong Answer: -1 mark
 • Not Attempted: 0 marks
+
+🌐 Language Settings:
+• Use /language to change quiz language (Hindi/English)
+• Explanations will be in selected language
 
 Valid Inputs:
 • Chapter: Any NCERT Class 11/12 chapter
@@ -1361,6 +1368,112 @@ async def refresh_admin_cache(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in admin cache refresh: {e}")
 
+@check_force_join
+async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Explain any question, topic, or reply to a message/quiz/poll/image."""
+    try:
+        chat_id = update.effective_chat.id
+        language = language_manager.get_language(chat_id)
+        
+        # Check if this is a reply to a message
+        if update.message.reply_to_message:
+            replied_message = update.message.reply_to_message
+            content_to_explain = None
+            content_type = 'text'
+            
+            # Handle quiz/poll
+            if replied_message.poll:
+                poll = replied_message.poll
+                content_to_explain = f"Question: {poll.question}\n\n"
+                content_to_explain += "Options:\n"
+                for i, option in enumerate(poll.options):
+                    content_to_explain += f"{chr(65+i)}) {option.text}\n"
+                if poll.type == 'quiz' and poll.correct_option_id is not None:
+                    content_to_explain += f"\nCorrect Answer: {chr(65+poll.correct_option_id)}"
+                content_type = 'quiz'
+            
+            # Handle text message
+            elif replied_message.text:
+                content_to_explain = replied_message.text
+                content_type = 'text'
+            
+            # Handle image with caption
+            elif replied_message.photo:
+                if replied_message.caption:
+                    content_to_explain = f"Image with caption: {replied_message.caption}"
+                else:
+                    content_to_explain = "This is an image. Please describe what you want to know about it or add a question with the /explain command."
+                content_type = 'image_description'
+            
+            # Handle other message types
+            else:
+                await update.message.reply_text(
+                    "❌ I can only explain text messages, quizzes, polls, or images with captions.\n\n"
+                    "【~@DrQuizRobot】"
+                )
+                return
+            
+            if not content_to_explain:
+                await update.message.reply_text(
+                    "❌ Could not extract content from the replied message.\n\n"
+                    "【~@DrQuizRobot】"
+                )
+                return
+        
+        # Handle direct text after /explain command
+        elif context.args and len(context.args) > 0:
+            content_to_explain = ' '.join(context.args)
+            content_type = 'text'
+        
+        else:
+            await update.message.reply_text(
+                "❌ Invalid format!\n\n"
+                "Usage:\n"
+                "1️⃣ Direct question: /explain [your question or topic]\n"
+                "2️⃣ Reply to message: Reply to any message/quiz/poll/image with /explain\n\n"
+                "Examples:\n"
+                "• /explain What is mitochondria?\n"
+                "• /explain Thermodynamics laws\n"
+                "• Reply to a quiz with: /explain\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        # Send "generating" message
+        generating_msg = await update.message.reply_text(
+            "🔍 Generating detailed explanation...\n"
+            "Please wait a moment... 【~@DrQuizRobot】"
+        )
+        
+        # Generate explanation
+        logger.info(f"Generating explanation for content: {content_to_explain[:100]}..., language={language}")
+        explanation = quiz_gen.generate_explanation(content_to_explain, content_type, language)
+        
+        # Delete "generating" message
+        try:
+            await generating_msg.delete()
+        except:
+            pass
+        
+        # Send explanation (split if too long for Telegram)
+        max_length = 4000
+        if len(explanation) > max_length:
+            # Split into chunks
+            chunks = [explanation[i:i+max_length] for i in range(0, len(explanation), max_length)]
+            for chunk in chunks:
+                await update.message.reply_text(chunk)
+        else:
+            await update.message.reply_text(explanation)
+        
+        logger.info(f"Successfully sent explanation for chat {chat_id}")
+        
+    except Exception as e:
+        logger.error(f"Error in explain_command: {e}", exc_info=True)
+        await update.message.reply_text(
+            "❌ An error occurred while generating the explanation. Please try again later.\n\n"
+            "【~@DrQuizRobot】"
+        )
+
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by updates."""
     logger.error(f"Update {update} caused error {context.error}")
@@ -1376,6 +1489,7 @@ def main():
     application.add_handler(CommandHandler("quiz", timed_quiz_command))
     application.add_handler(CommandHandler("stopquiz", stop_quiz_command))
     application.add_handler(CommandHandler("end", end_quiz_command))
+    application.add_handler(CommandHandler("explain", explain_command))
     application.add_handler(CommandHandler("myid", myid_command))
     
     # Admin commands
