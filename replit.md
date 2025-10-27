@@ -53,6 +53,8 @@ The workflow involves user command parsing, force join verification, input valid
 
 **Timed Quiz Feature**: The `/quiz` command now includes a customizable timer selection interface. After generating questions, users are presented with inline keyboard buttons to choose their preferred time per question (15s, 30s, 45s, or 60s). The selected timing is stored in the quiz session and applied consistently across all 20 questions, with auto-advance functionality using the chosen duration plus a 2-second buffer.
 
+**Leaderboard Features**: All leaderboards (regular quiz and global live quiz) now display user names as clickable Telegram profile links using the format `[Name](tg://user?id=USER_ID)`, enabling easy access to participant profiles. Additionally, leaderboards include a help message informing users they can reply to any quiz question with `/explain` to receive detailed AI-powered explanations. All markdown special characters are properly escaped to ensure correct rendering across all user scenarios.
+
 ## External Dependencies
 
 ### Third-Party APIs
