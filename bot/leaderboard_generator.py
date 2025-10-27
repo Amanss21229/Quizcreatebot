@@ -48,6 +48,9 @@ def generate_leaderboard_message(leaderboard_data: List[Dict], chapter: str, tot
         if len(name) > 15:
             name = name[:12] + "..."
         
+        user_id = participant['user_id']
+        clickable_name = f"[{name}](tg://user?id={user_id})"
+        
         score = participant['total_score']
         attempted = participant['total_attempted']
         correct = participant['correct_answers']
@@ -62,7 +65,7 @@ def generate_leaderboard_message(leaderboard_data: List[Dict], chapter: str, tot
         
         rank_bar = "━" * min(20, score)
         
-        participants_section += f"**{medal} {name}**\n"
+        participants_section += f"**{medal} {clickable_name}**\n"
         participants_section += f"├ 💯 Score: **{score}/{total_questions}** ({accuracy:.1f}%)\n"
         participants_section += f"├ ✅ Correct: {correct} │ ❌ Wrong: {wrong} │ ⏭️ Skipped: {unattempted}\n"
         participants_section += f"├ ⏱️ Time: {time_str}\n"
@@ -87,6 +90,13 @@ def generate_leaderboard_message(leaderboard_data: List[Dict], chapter: str, tot
         f"└ Total Wrong: {total_wrong}\n\n"
     )
     
+    help_section = (
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "💡 **Need Explanation?**\n"
+        "Reply to any quiz question with `/explain`\n"
+        "to get detailed AI-powered explanation!\n\n"
+    )
+    
     closing = (
         "╭─────────────────────────────╮\n"
         "│  🌟 Thank you for playing! 🌟  │\n"
@@ -94,7 +104,7 @@ def generate_leaderboard_message(leaderboard_data: List[Dict], chapter: str, tot
         "【~@DrQuizRobot】"
     )
     
-    return header + participants_section + footer + stats + closing
+    return header + participants_section + footer + stats + help_section + closing
 
 
 def generate_quiz_complete_message(total_questions: int) -> str:
