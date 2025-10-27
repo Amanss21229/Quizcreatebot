@@ -164,9 +164,9 @@ Generate exactly {num_questions} questions now in valid JSON format."""
         """
         language_instruction = ""
         if language == 'hindi':
-            language_instruction = "IMPORTANT: Generate the ENTIRE explanation in HINDI language (Devanagari script). Use proper Hindi scientific terminology."
+            language_instruction = "IMPORTANT: Generate the ENTIRE explanation in HINDI language (Devanagari script). Use proper Hindi scientific terminology. DO NOT use any mathematical symbols, LaTeX, or special characters."
         else:
-            language_instruction = "IMPORTANT: Generate the ENTIRE explanation in ENGLISH language."
+            language_instruction = "IMPORTANT: Generate the ENTIRE explanation in ENGLISH language. DO NOT use any mathematical symbols, LaTeX, or special characters."
         
         prompt = f"""You are an expert NEET educator with complete knowledge of NCERT Class 11 & 12 textbooks and NEET exam patterns.
 
@@ -174,26 +174,60 @@ Generate exactly {num_questions} questions now in valid JSON format."""
 
 Content to explain: {content}
 
-Provide a CONCISE, ACCURATE explanation in MAXIMUM 5 LINES:
-1. If it's a question, state the correct answer first
-2. Give brief reasoning with key concept
-3. Mention NCERT reference if applicable
-4. Keep it to the point and exam-focused
+Provide a CLEAN, SIMPLE explanation in 1-10 LINES (adjust based on complexity):
 
-STRICT RULES:
-- Maximum 5 lines ONLY
-- Be precise and accurate
-- Focus on the core concept
-- No extra details
+CRITICAL FORMATTING RULES:
+1. Use ONLY plain text - NO LaTeX, NO mathematical symbols like $, /, \\, etc.
+2. Write numbers and formulas in simple text (e.g., "E = mc squared" not "E = mc^2")
+3. If it's a question, state the correct answer FIRST in simple language
+4. Give brief reasoning with key concept
+5. Mention NCERT reference if applicable
+6. Keep explanation between 1-10 lines based on question complexity
+7. Use simple words that anyone can understand
+8. NO special symbols, brackets, or formatting characters
 
-{WATERMARK}"""
+FORBIDDEN CHARACTERS: $ / \\ ^ _ {{ }} [ ] * # ~
+
+OUTPUT RULES:
+- Simple sentences only
+- Plain text explanation
+- Clear and easy to understand
+- No technical formatting symbols"""
         
         try:
             response = self.model.generate_content(prompt)
-            explanation = response.text.strip()
-            return f"{explanation}\n\n{WATERMARK}"
+            raw_explanation = response.text.strip()
+            
+            # Clean up unwanted symbols
+            cleaned_explanation = self._clean_explanation(raw_explanation)
+            
+            return cleaned_explanation
+            
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Error generating explanation: {e}")
             raise
+    
+    def _clean_explanation(self, text: str) -> str:
+        """Clean unwanted symbols from AI-generated explanation."""
+        # Remove common LaTeX and mathematical symbols
+        text = re.sub(r'\$+', '', text)  # Remove $
+        text = re.sub(r'\\[a-zA-Z]+\{[^}]*\}', '', text)  # Remove LaTeX commands like \text{...}
+        text = re.sub(r'\\[a-zA-Z]+', '', text)  # Remove LaTeX commands like \alpha
+        text = re.sub(r'\^\{?[^}]*\}?', '', text)  # Remove superscripts
+        text = re.sub(r'_\{?[^}]*\}?', '', text)  # Remove subscripts
+        text = re.sub(r'[{}]', '', text)  # Remove braces
+        text = re.sub(r'\[([^\]]+)\]', r'\1', text)  # Remove square brackets but keep content
+        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)  # Remove bold markdown
+        text = re.sub(r'\*([^*]+)\*', r'\1', text)  # Remove italic markdown
+        text = re.sub(r'##\s+', '', text)  # Remove markdown headers
+        text = re.sub(r'~~([^~]+)~~', r'\1', text)  # Remove strikethrough
+        
+        # Remove multiple spaces
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Remove multiple newlines (keep max 2)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        
+        return text.strip()

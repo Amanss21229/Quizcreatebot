@@ -2300,7 +2300,7 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Generate explanation
         logger.info(f"Generating explanation for content: {content_to_explain[:100]}..., language={language}")
-        explanation = quiz_gen.generate_explanation(content_to_explain, content_type, language)
+        raw_explanation = quiz_gen.generate_explanation(content_to_explain, content_type, language)
         
         # Delete "generating" message
         try:
@@ -2308,15 +2308,40 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
         
+        # Format explanation beautifully
+        formatted_explanation = f"""╔═══════════════════════════════════════╗
+║       💡 AI EXPLANATION 💡            ║
+╚═══════════════════════════════════════╝
+
+📚 **EXPLANATION:**
+
+{raw_explanation}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 **KEY POINTS:**
+✅ Focus on NCERT concepts
+✅ Practice similar questions
+✅ Understand the logic, not just memorize
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 Need more help? Ask another question!
+
+【~@DrQuizRobot】"""
+        
         # Send explanation (split if too long for Telegram)
         max_length = 4000
-        if len(explanation) > max_length:
-            # Split into chunks
-            chunks = [explanation[i:i+max_length] for i in range(0, len(explanation), max_length)]
-            for chunk in chunks:
-                await update.message.reply_text(chunk)
+        if len(formatted_explanation) > max_length:
+            # If too long, send raw explanation without heavy formatting
+            simple_format = f"""💡 **EXPLANATION:**
+
+{raw_explanation}
+
+【~@DrQuizRobot】"""
+            await update.message.reply_text(simple_format)
         else:
-            await update.message.reply_text(explanation)
+            await update.message.reply_text(formatted_explanation)
         
         logger.info(f"Successfully sent explanation for chat {chat_id}")
         
