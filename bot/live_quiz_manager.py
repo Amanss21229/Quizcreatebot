@@ -355,7 +355,7 @@ Good luck! 🍀
     async def finalize_session(self, context: ContextTypes.DEFAULT_TYPE,
                                session: LiveQuizSession,
                                quiz_lock_manager):
-        """Finalize the session and send global leaderboard"""
+        """Finalize the session and send global + group-specific leaderboards"""
         session.is_running = False
         session.is_completed = True
         session.end_time = datetime.now()
@@ -364,21 +364,41 @@ Good luck! 🍀
         for user_id in session.participants.keys():
             session.mark_unattempted(user_id, len(session.questions))
         
-        # Generate and send global leaderboard
-        leaderboard_message = self.generate_global_leaderboard(session)
+        # Get sorted participants with global ranks
+        sorted_participants = session.get_sorted_participants()
         
-        # Send to all groups
+        # Create global rank mapping
+        global_rank_map = {}
+        for rank, participant in enumerate(sorted_participants, 1):
+            global_rank_map[participant.user_id] = rank
+        
+        # Generate and send leaderboards to all groups
         for group_id, group_state in session.group_states.items():
             try:
+                # Send global leaderboard (top 50)
+                global_leaderboard = self.generate_global_leaderboard(session, sorted_participants)
                 await context.bot.send_message(
                     chat_id=group_id,
-                    text=leaderboard_message
+                    text=global_leaderboard
                 )
+                
+                await asyncio.sleep(0.5)
+                
+                # Send group-specific leaderboard
+                group_leaderboard = self.generate_group_leaderboard(
+                    session, group_id, group_state.group_title, global_rank_map
+                )
+                if group_leaderboard:
+                    await context.bot.send_message(
+                        chat_id=group_id,
+                        text=group_leaderboard,
+                        parse_mode='Markdown'
+                    )
                 
                 # Release lock
                 quiz_lock_manager.release_lock(group_id)
                 
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.3)
                 
             except Exception as e:
                 logger.error(f"Failed to send leaderboard to group {group_id}: {e}")
@@ -396,9 +416,8 @@ Good luck! 🍀
         # Clear active session
         self.active_session = None
     
-    def generate_global_leaderboard(self, session: LiveQuizSession) -> str:
-        """Generate beautifully formatted global leaderboard with detailed scoring"""
-        sorted_participants = session.get_sorted_participants()
+    def generate_global_leaderboard(self, session: LiveQuizSession, sorted_participants: List[ParticipantStats]) -> str:
+        """Generate beautifully formatted global leaderboard with top 50 performers"""
         group_stats = session.get_group_stats()
         
         # Header
@@ -414,13 +433,13 @@ Good luck! 🍀
 👥 Participants: {len(session.participants)} | 🌍 Groups: {len(group_stats)}
 📚 Questions: {len(session.questions)} MCQs | ⏱️ Timer: 45s/Q
 
-🏅 **TOP PERFORMERS**
+🏅 **TOP 50 PERFORMERS GLOBALLY**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
         
-        # Top participants with detailed stats (limit to 20 to fit in message)
+        # Top participants with detailed stats (limit to 50)
         medal_emojis = ["🥇", "🥈", "🥉"]
-        max_display = min(20, len(sorted_participants))
+        max_display = min(50, len(sorted_participants))
         
         for rank, participant in enumerate(sorted_participants[:max_display], 1):
             # Rank display with medals
@@ -444,14 +463,12 @@ Good luck! 🍀
             total_time = participant.total_time
             
             # Format group name
-            group_name = participant.group_title[:20] if len(participant.group_title) <= 20 else participant.group_title[:17] + "..."
+            group_name = participant.group_title[:18] if len(participant.group_title) <= 18 else participant.group_title[:15] + "..."
             
             leaderboard += f"""
 {rank_display} **{username_display}**
-   💯 Score: {total_score:+d} | ✅ Right: {participant.correct} (+{correct_marks})
-   ❌ Wrong: {participant.wrong} ({negative_marks}) | ⏭️ Skip: {participant.unattempted}
-   📝 Attempt: {total_attempted}/{len(session.questions)} | ⏱️ Time: {total_time:.1f}s
-   🏛️ {group_name}
+   💯 Score: {total_score:+d} | ✅ {participant.correct} ❌ {participant.wrong} ⏭️ {participant.unattempted}
+   ⏱️ {total_time:.1f}s | 🏛️ {group_name}
 
 """
         
@@ -466,13 +483,134 @@ Good luck! 🍀
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💡 **NEED SOLUTIONS?**
-📝 Reply to any quiz question with /explain
-🔍 Get detailed AI-powered explanations instantly!
+🎯 Check your group's detailed leaderboard below! 👇
+
+【~@DrQuizRobot】
+"""
+        
+        return leaderboard
+    
+    def generate_group_leaderboard(self, session: LiveQuizSession, group_id: int, 
+                                   group_title: str, global_rank_map: dict) -> str:
+        """Generate beautifully formatted group-specific leaderboard with global ranks"""
+        # Filter participants from this group
+        group_participants = [
+            p for p in session.participants.values() 
+            if p.registered_group_id == group_id
+        ]
+        
+        if not group_participants:
+            return None
+        
+        # Sort by score (descending), then by time (ascending)
+        group_participants.sort(key=lambda p: (-p.score, p.total_time))
+        
+        # Header with group name
+        group_name_display = group_title[:30] if len(group_title) <= 30 else group_title[:27] + "..."
+        leaderboard = f"""
+╔═══════════════════════════════════════╗
+║       🏛️ YOUR GROUP LEADERBOARD       ║
+╚═══════════════════════════════════════╝
+
+📍 **GROUP:** {group_name_display}
+👥 **PARTICIPANTS:** {len(group_participants)}
+📚 **CHAPTER:** {session.chapter[:25]}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       🎯 **DETAILED PERFORMANCE** 🎯
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"""
+        
+        # Categorize participants by performance
+        top_performers = []
+        good_performers = []
+        average_performers = []
+        need_improvement = []
+        
+        for participant in group_participants:
+            accuracy = (participant.correct / (participant.correct + participant.wrong) * 100) if (participant.correct + participant.wrong) > 0 else 0
+            if accuracy >= 80 and participant.score > 0:
+                top_performers.append(participant)
+            elif accuracy >= 60 or participant.score > 0:
+                good_performers.append(participant)
+            elif participant.total_attempts > 0:
+                average_performers.append(participant)
+            else:
+                need_improvement.append(participant)
+        
+        # Display all participants with detailed stats
+        for group_rank, participant in enumerate(group_participants, 1):
+            global_rank = global_rank_map.get(participant.user_id, "N/A")
+            
+            # Rank emoji
+            if group_rank == 1:
+                rank_emoji = "👑"
+            elif group_rank == 2:
+                rank_emoji = "🥈"
+            elif group_rank == 3:
+                rank_emoji = "🥉"
+            elif group_rank <= 5:
+                rank_emoji = "⭐"
+            else:
+                rank_emoji = "📍"
+            
+            # User display
+            username_display = f"@{participant.username}" if participant.username else participant.first_name
+            if len(username_display) > 18:
+                username_display = username_display[:15] + "..."
+            
+            # Performance indicator
+            accuracy = (participant.correct / (participant.correct + participant.wrong) * 100) if (participant.correct + participant.wrong) > 0 else 0
+            if accuracy >= 80:
+                perf_emoji = "🔥"
+            elif accuracy >= 60:
+                perf_emoji = "💪"
+            elif accuracy >= 40:
+                perf_emoji = "📈"
+            else:
+                perf_emoji = "📊"
+            
+            # Calculate stats
+            total_score = participant.score
+            correct = participant.correct
+            wrong = participant.wrong
+            unattempted = participant.unattempted
+            total_attempted = participant.total_attempts
+            time_taken = participant.total_time
+            
+            leaderboard += f"""
+{rank_emoji} **{username_display}** {perf_emoji}
+├─ 🌍 Global Rank: #{global_rank} | 🏛️ Group Rank: #{group_rank}
+├─ 💯 **Score:** {total_score:+d} points
+├─ ✅ Correct: {correct} (+{correct*4}) | ❌ Wrong: {wrong} ({wrong*-1})
+├─ ⏭️ Skipped: {unattempted} | 📝 Attempted: {total_attempted}/{len(session.questions)}
+├─ ⏱️ Time Taken: {time_taken:.1f}s | 🎯 Accuracy: {accuracy:.1f}%
+└─ {'─' * 35}
+
+"""
+        
+        # Footer with motivational message
+        leaderboard += f"""━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 **GROUP PERFORMANCE SUMMARY**
+
+🔥 Top Performers (≥80%): {len(top_performers)}
+💪 Good Performers (≥60%): {len(good_performers)}
+📈 Average Performers: {len(average_performers)}
+📊 Room for Improvement: {len(need_improvement)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎉 Congratulations to all participants!
+💡 **TIPS FOR IMPROVEMENT:**
+✅ Review wrong answers using /explain
+📚 Focus on NCERT concepts
+⏱️ Practice time management
+🎯 Attempt all questions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 Great effort, team! Keep practicing! 💪
 
 【~@DrQuizRobot】
 """
