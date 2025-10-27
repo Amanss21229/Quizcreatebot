@@ -324,7 +324,7 @@ Good luck! 🍀
                         question=f"Q{question_num}/20: {question['question']}",
                         options=question['options'],
                         type='quiz',
-                        correct_option_id=question['correct_option_index'],
+                        correct_option_id=int(question['correct_answer']),
                         is_anonymous=False,
                         open_period=self.question_duration
                     )
