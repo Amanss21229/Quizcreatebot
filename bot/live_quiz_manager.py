@@ -8,6 +8,15 @@ from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
 
+
+def escape_markdown(text: str) -> str:
+    """Escape Markdown special characters in text."""
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for char in special_chars:
+        text = text.replace(char, '\\' + char)
+    return text
+
+
 @dataclass
 class ParticipantStats:
     """Statistics for a single participant in the global quiz"""
@@ -379,7 +388,8 @@ Good luck! 🍀
                 global_leaderboard = self.generate_global_leaderboard(session, sorted_participants)
                 await context.bot.send_message(
                     chat_id=group_id,
-                    text=global_leaderboard
+                    text=global_leaderboard,
+                    parse_mode='Markdown'
                 )
                 
                 await asyncio.sleep(0.5)
@@ -455,8 +465,9 @@ Good luck! 🍀
             if len(username_display) > 20:
                 username_display = username_display[:17] + "..."
             
-            # Make name clickable
-            clickable_name = f"[{username_display}](tg://user?id={participant.user_id})"
+            # Make name clickable (escape markdown chars)
+            escaped_name = escape_markdown(username_display)
+            clickable_name = f"[{escaped_name}](tg://user?id={participant.user_id})"
             
             # Calculate detailed stats
             total_score = participant.score
@@ -569,8 +580,9 @@ to get detailed AI-powered explanation!
             if len(username_display) > 18:
                 username_display = username_display[:15] + "..."
             
-            # Make name clickable
-            clickable_name = f"[{username_display}](tg://user?id={participant.user_id})"
+            # Make name clickable (escape markdown chars)
+            escaped_name = escape_markdown(username_display)
+            clickable_name = f"[{escaped_name}](tg://user?id={participant.user_id})"
             
             # Performance indicator
             accuracy = (participant.correct / (participant.correct + participant.wrong) * 100) if (participant.correct + participant.wrong) > 0 else 0
