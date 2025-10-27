@@ -77,6 +77,10 @@ class StatsManager:
         self.total_questions_sent += num_questions
         self.save_stats()
     
+    def get_all_groups(self) -> Set[int]:
+        """Get all tracked groups."""
+        return self.groups
+    
     def get_stats(self) -> Dict:
         """Get all statistics."""
         return {
