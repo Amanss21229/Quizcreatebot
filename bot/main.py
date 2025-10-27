@@ -696,7 +696,7 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "• /quiz Thermodynamics\n\n"
                 "ℹ️ **Info:**\n"
                 "• 20 questions per quiz\n"
-                "• 45 seconds per question\n"
+                "• Choose your own time per question\n"
                 "• Leaderboard at the end\n\n"
                 "【~@DrQuizRobot】"
             )
@@ -713,7 +713,6 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "╚═══════════════════════════════╝\n\n"
             f"📚 **Chapter:** {chapter}\n"
             f"📝 **Questions:** 20\n"
-            f"⏱️ **Time:** 45 seconds/question\n"
             f"{'⚡ **Mode:** Instant advance' if is_private_chat else '🔄 **Mode:** Auto-advance'}\n"
             f"🏆 **Leaderboard:** Yes\n\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -739,39 +738,33 @@ async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             return
         
-        if not quiz_lock_manager.acquire_lock(chat_id, "timer_quiz"):
-            await update.message.reply_text(
-                "╔═══════════════════════════════╗\n"
-                "║   ⚠️ QUIZ IN PROGRESS ⚠️      ║\n"
-                "╚═══════════════════════════════╝\n\n"
-                "🎮 Another quiz is currently active!\n\n"
-                "⏳ Please wait for it to complete.\n\n"
-                "【~@DrQuizRobot】"
-            )
-            return
+        context.chat_data['pending_quiz'] = {
+            'chapter': chapter,
+            'questions': questions,
+            'is_private_chat': is_private_chat
+        }
         
-        lock_acquired = True
-        
-        session = quiz_session_manager.create_session(chat_id, chapter, questions, is_private_chat)
+        keyboard = [
+            [
+                InlineKeyboardButton("⏱️ 15 sec", callback_data="quiz_time_15"),
+                InlineKeyboardButton("⏱️ 30 sec", callback_data="quiz_time_30")
+            ],
+            [
+                InlineKeyboardButton("⏱️ 45 sec", callback_data="quiz_time_45"),
+                InlineKeyboardButton("⏱️ 60 sec", callback_data="quiz_time_60")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
             "╔═══════════════════════════════╗\n"
-            "║   🎮 QUIZ STARTING NOW! 🎮    ║\n"
+            "║   ⏱️ SELECT TIME PER QUIZ ⏱️  ║\n"
             "╚═══════════════════════════════╝\n\n"
-            "🎯 **Instructions:**\n\n"
-            "⏱️ Answer within 45 seconds\n"
-            "🔄 Auto-advance after timer\n"
-            "🏆 Score tracked for leaderboard\n"
-            "📊 Real-time rankings\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "🍀 **Good luck!**\n"
-            "💪 Give your best!\n\n"
-            "【~@DrQuizRobot】"
+            "🎯 Quiz is ready to start!\n\n"
+            "⏱️ Please choose time per question:\n\n"
+            "【~@DrQuizRobot】",
+            reply_markup=reply_markup
         )
-        
-        await asyncio.sleep(2)
-        
-        await send_next_question(update, context, chat_id)
         
     except Exception as e:
         logger.error(f"Error in timed_quiz_command: {e}", exc_info=True)
@@ -819,14 +812,15 @@ async def send_next_question(update: Update, context: ContextTypes.DEFAULT_TYPE,
             type='quiz',
             correct_option_id=int(question_data['correct_answer']),
             is_anonymous=False,
-            open_period=45,
+            open_period=session.time_per_question,
             explanation=question_data.get('explanation', '')[:200] if question_data.get('explanation') else None
         )
         
         session.start_question(message.poll.id)
-        logger.info(f"Sent question {question_num}/20 for quiz in chat {chat_id}, poll_id={message.poll.id}")
+        logger.info(f"Sent question {question_num}/20 for quiz in chat {chat_id}, poll_id={message.poll.id}, time={session.time_per_question}s")
         
-        task = asyncio.create_task(auto_advance_question(update, context, chat_id, 47))
+        delay = session.time_per_question + 2
+        task = asyncio.create_task(auto_advance_question(update, context, chat_id, delay))
         session.auto_advance_task = task
         
     except Exception as e:
@@ -1740,6 +1734,105 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "【~@DrQuizRobot】"
     )
 
+async def quiz_time_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle quiz time selection callback."""
+    query = update.callback_query
+    await query.answer()
+    
+    chat_id = update.effective_chat.id
+    
+    if 'pending_quiz' not in context.chat_data:
+        await query.edit_message_text(
+            "╔═══════════════════════════════╗\n"
+            "║   ❌ SESSION EXPIRED ❌        ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "⏳ Quiz session expired\n\n"
+            "🔄 Please run /quiz command again\n\n"
+            "【~@DrQuizRobot】"
+        )
+        return
+    
+    time_mapping = {
+        "quiz_time_15": 15,
+        "quiz_time_30": 30,
+        "quiz_time_45": 45,
+        "quiz_time_60": 60
+    }
+    
+    if query.data not in time_mapping:
+        await query.edit_message_text(
+            "╔═══════════════════════════════╗\n"
+            "║   ❌ INVALID SELECTION ❌      ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "【~@DrQuizRobot】"
+        )
+        return
+    
+    time_per_question = time_mapping[query.data]
+    
+    pending_quiz = context.chat_data['pending_quiz']
+    chapter = pending_quiz['chapter']
+    questions = pending_quiz['questions']
+    is_private_chat = pending_quiz['is_private_chat']
+    
+    del context.chat_data['pending_quiz']
+    
+    if quiz_session_manager.has_active_session(chat_id) or quiz_lock_manager.is_locked(chat_id):
+        await query.edit_message_text(
+            "╔═══════════════════════════════╗\n"
+            "║   ⚠️ QUIZ ALREADY ACTIVE ⚠️   ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "🎮 A quiz is already running!\n\n"
+            "⏳ Please wait for it to finish\n\n"
+            "【~@DrQuizRobot】"
+        )
+        return
+    
+    if not quiz_lock_manager.acquire_lock(chat_id, "timer_quiz"):
+        await query.edit_message_text(
+            "╔═══════════════════════════════╗\n"
+            "║   ⚠️ QUIZ IN PROGRESS ⚠️      ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "🎮 Another quiz is currently active!\n\n"
+            "⏳ Please wait for it to complete.\n\n"
+            "【~@DrQuizRobot】"
+        )
+        return
+    
+    try:
+        session = quiz_session_manager.create_session(chat_id, chapter, questions, is_private_chat, time_per_question)
+        
+        await query.edit_message_text(
+            "╔═══════════════════════════════╗\n"
+            "║   🎮 QUIZ STARTING NOW! 🎮    ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "🎯 **Instructions:**\n\n"
+            f"⏱️ Answer within {time_per_question} seconds\n"
+            "🔄 Auto-advance after timer\n"
+            "🏆 Score tracked for leaderboard\n"
+            "📊 Real-time rankings\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🍀 **Good luck!**\n"
+            "💪 Give your best!\n\n"
+            "【~@DrQuizRobot】"
+        )
+        
+        await asyncio.sleep(2)
+        
+        await send_next_question(update, context, chat_id)
+        
+    except Exception as e:
+        logger.error(f"Error starting quiz: {e}", exc_info=True)
+        quiz_lock_manager.release_lock(chat_id)
+        await query.edit_message_text(
+            "╔═══════════════════════════════╗\n"
+            "║      ❌ ERROR ❌               ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "⚠️ Failed to start quiz\n\n"
+            "🔄 Please try again\n\n"
+            "【~@DrQuizRobot】"
+        )
+
 async def tagall_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Tag all group members with funny questions."""
     chat = update.effective_chat
@@ -2432,6 +2525,7 @@ def main():
     # Callback query handlers
     application.add_handler(CallbackQueryHandler(anonymous_verification_callback, pattern="^verify:"))
     application.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
+    application.add_handler(CallbackQueryHandler(quiz_time_callback, pattern="^quiz_time_"))
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
     
     application.add_error_handler(error_handler)
