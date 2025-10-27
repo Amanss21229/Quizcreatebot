@@ -7,7 +7,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["jq", "gut"]
+packages = ["gut", "jq"]
 
 [env]
 MASTRA_HIDE_CLOUD_CTA = "true"
