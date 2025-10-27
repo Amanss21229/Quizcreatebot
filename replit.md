@@ -6,6 +6,20 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 ## Recent Changes
 
+**October 27, 2025** (Latest Update - Part 9):
+- ✅ **NEW COMMAND**: `/endlivequiz` - End Live Quiz Early (Admin Only)
+  - Bot admins can end active live quiz immediately using `/endlivequiz`
+  - Quiz ends instantly across ALL participating groups simultaneously
+  - Automatically calculates and sends leaderboard for questions answered so far
+  - Sends "Quiz Ended Early" notification to all groups before leaderboard
+  - Handles edge cases: countdown not started, no active quiz, etc.
+  - Properly releases all group locks and cleans up resources
+  - Added `end_live_quiz_early()` method in `LiveQuizCoordinator` class
+  - Integrates seamlessly with existing global live quiz system
+- ✅ **FIXED**: Added missing `get_all_groups()` method in `StatsManager`
+  - Fixed "AttributeError" when starting live quiz
+  - Returns all tracked groups for global quiz broadcasting
+
 **October 26, 2025** (Latest Update - Part 8):
 - ✅ **NEW FEATURE**: Global Live Quiz System
   - Bot admins can run synchronized quizzes across ALL groups simultaneously using `/startlivequiz <chapter>`

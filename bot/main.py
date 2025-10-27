@@ -1530,6 +1530,37 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
             f"Please try again or contact support."
         )
 
+@admin_only
+async def endlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """End the active live quiz early (admin only)."""
+    try:
+        success, message = await live_quiz_coordinator.end_live_quiz_early(context, quiz_lock_manager)
+        
+        if success:
+            await update.message.reply_text(
+                "╔═══════════════════════════════════╗\n"
+                "║   ✅ LIVE QUIZ ENDED ✅           ║\n"
+                "╚═══════════════════════════════════╝\n\n"
+                f"📢 {message}\n\n"
+                "🏆 Leaderboards have been sent to all groups!\n\n"
+                "【~@DrQuizRobot】"
+            )
+        else:
+            await update.message.reply_text(
+                "╔═══════════════════════════════════╗\n"
+                "║   ⚠️ CANNOT END QUIZ ⚠️           ║\n"
+                "╚═══════════════════════════════════╝\n\n"
+                f"📢 {message}\n\n"
+                "【~@DrQuizRobot】"
+            )
+    
+    except Exception as e:
+        logger.error(f"Error ending live quiz: {e}", exc_info=True)
+        await update.message.reply_text(
+            f"❌ Error ending live quiz: {str(e)}\n\n"
+            f"Please try again or contact support."
+        )
+
 @bot_or_group_admin_only
 async def welcomeon_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Enable welcome messages in a group (bot admin or group admin only)."""
@@ -2330,6 +2361,7 @@ def main():
     application.add_handler(CommandHandler("remove", remove_admin_command))
     application.add_handler(CommandHandler("adminlist", adminlist_command))
     application.add_handler(CommandHandler("startlivequiz", startlivequiz_command))
+    application.add_handler(CommandHandler("endlivequiz", endlivequiz_command))
     
     # Welcome commands (bot admin or group admin)
     application.add_handler(CommandHandler("welcomeon", welcomeon_command))

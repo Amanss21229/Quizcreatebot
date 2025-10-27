@@ -416,6 +416,62 @@ Good luck! 🍀
         leaderboard += "\n🎉 Congratulations to all participants!\n\n【~@DrQuizRobot】"
         
         return leaderboard
+    
+    async def end_live_quiz_early(self, context: ContextTypes.DEFAULT_TYPE, quiz_lock_manager):
+        """End the live quiz early and send leaderboard for questions answered so far"""
+        if not self.active_session or self.active_session.is_completed:
+            return False, "No active live quiz to end."
+        
+        session = self.active_session
+        
+        # Cancel countdown task if it's still running
+        if session.countdown_task and not session.countdown_task.done():
+            session.countdown_task.cancel()
+            logger.info("Cancelled countdown task")
+            return False, "Live quiz hasn't started yet. Countdown cancelled."
+        
+        # Send end message to all groups
+        end_message = """
+╔═══════════════════════════════════╗
+║   ⚠️ LIVE QUIZ ENDED EARLY ⚠️     ║
+╚═══════════════════════════════════╝
+
+📢 **Quiz has been stopped by admin**
+
+⏱️ Calculating results for questions answered so far...
+
+【~@DrQuizRobot】
+"""
+        
+        for group_id, group_state in session.group_states.items():
+            try:
+                await context.bot.send_message(
+                    chat_id=group_id,
+                    text=end_message
+                )
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                logger.error(f"Failed to send end message to group {group_id}: {e}")
+        
+        # Wait a moment before sending leaderboard
+        await asyncio.sleep(2)
+        
+        # Calculate questions answered
+        max_question_index = 0
+        for group_state in session.group_states.values():
+            if group_state.current_question_index > max_question_index:
+                max_question_index = group_state.current_question_index
+        
+        questions_answered = max_question_index + 1
+        
+        # Update session to reflect actual questions asked
+        session.questions = session.questions[:questions_answered]
+        
+        # Finalize session with early end
+        await self.finalize_session(context, session, quiz_lock_manager)
+        
+        logger.info(f"Live quiz ended early after {questions_answered} questions")
+        return True, f"Live quiz ended successfully. Leaderboard sent for {questions_answered} questions."
 
 
 # Global instance
