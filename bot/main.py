@@ -153,7 +153,8 @@ Wake up to motivating **Good Morning wishes** that keep you energized and focuse
    • Any NCERT chapter from Class 11 & 12
    
 🔹 **Timer Challenges** - Test yourself under pressure!
-   • 20 questions with 45-second countdown ⏱️
+   • 20 questions with customizable timer ⏱️
+   • Choose: 15s, 30s, 45s, or 60s per question
    • Real exam simulation
    • Leaderboard rankings 🏆
 
@@ -232,7 +233,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 🔹 `/quiz [chapter]`
    Start 20-question timed quiz session
-   • Timer: 45 seconds per question
+   • Choose your time: 15s, 30s, 45s, or 60s per question
    • Auto-advance: Questions move automatically
    • Leaderboard: Rankings at the end
    • Example: `/quiz Thermodynamics`
