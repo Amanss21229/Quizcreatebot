@@ -486,8 +486,8 @@ Good luck! 🍀
         
         session = self.active_session
         
-        # Cancel countdown task if it's still running
-        if session.countdown_task and not session.countdown_task.done():
+        # Cancel countdown task if quiz hasn't started yet
+        if session.countdown_task and not session.countdown_task.done() and not session.is_running:
             session.countdown_task.cancel()
             logger.info("Cancelled countdown task")
             return False, "Live quiz hasn't started yet. Countdown cancelled."
