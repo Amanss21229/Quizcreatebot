@@ -16,6 +16,7 @@ class ParticipantStats:
     first_name: str
     group_id: int
     group_title: str
+    registered_group_id: int = 0
     correct: int = 0
     wrong: int = 0
     unattempted: int = 0
@@ -86,18 +87,23 @@ class LiveQuizSession:
     
     def record_answer(self, user_id: int, username: Optional[str], first_name: str, 
                      group_id: int, group_title: str, is_correct: bool, time_taken: float):
-        """Record a user's answer"""
+        """Record a user's answer - only counts answers from user's first participating group"""
         if user_id not in self.participants:
             self.participants[user_id] = ParticipantStats(
                 user_id=user_id,
                 username=username,
                 first_name=first_name,
                 group_id=group_id,
-                group_title=group_title
+                group_title=group_title,
+                registered_group_id=group_id
             )
             self.user_answers[user_id] = []
         
         participant = self.participants[user_id]
+        
+        if participant.registered_group_id != group_id:
+            logger.info(f"User {user_id} trying to answer from different group {group_id}, but registered in {participant.registered_group_id}. Ignoring.")
+            return
         
         if is_correct:
             participant.correct += 1
