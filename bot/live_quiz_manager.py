@@ -217,7 +217,7 @@ class LiveQuizCoordinator:
         """Wait 5 minutes then start the quiz in all groups"""
         try:
             # Wait 5 minutes (300 seconds)
-            await asyncio.sleep(300)
+            await asyncio.sleep(30)
             
             # Start the quiz
             await self.broadcast_quiz_start(
