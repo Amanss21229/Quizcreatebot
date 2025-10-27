@@ -51,6 +51,8 @@ Preferred communication style: Simple, everyday language.
 
 The workflow involves user command parsing, force join verification, input validation, language detection, LLM prompt construction, Gemini API call for structured JSON, response parsing, Telegram native poll creation, and statistics updates. Quizzes support NEET scoring (+4 for correct, -1 for wrong, 0 for unattempted).
 
+**Timed Quiz Feature**: The `/quiz` command now includes a customizable timer selection interface. After generating questions, users are presented with inline keyboard buttons to choose their preferred time per question (15s, 30s, 45s, or 60s). The selected timing is stored in the quiz session and applied consistently across all 20 questions, with auto-advance functionality using the chosen duration plus a 2-second buffer.
+
 ## External Dependencies
 
 ### Third-Party APIs
