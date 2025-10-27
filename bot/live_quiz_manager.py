@@ -280,21 +280,38 @@ Good luck! 🍀
                 session.deactivate_group(group_id)
         
         # Now broadcast questions one by one
-        await self.broadcast_questions(context, session, quiz_lock_manager)
+        logger.info(f"Starting to broadcast {len(session.questions)} questions to {len(session.group_states)} groups")
+        try:
+            await self.broadcast_questions(context, session, quiz_lock_manager)
+        except Exception as e:
+            logger.error(f"Fatal error broadcasting questions: {e}", exc_info=True)
+            # Send error message to all groups
+            error_msg = f"❌ Error broadcasting questions: {str(e)}\n\nPlease contact support."
+            for group_id in session.group_states.keys():
+                try:
+                    await context.bot.send_message(chat_id=group_id, text=error_msg)
+                    quiz_lock_manager.release_lock(group_id)
+                except:
+                    pass
     
     async def broadcast_questions(self, context: ContextTypes.DEFAULT_TYPE,
                                   session: LiveQuizSession,
                                   quiz_lock_manager):
         """Broadcast questions to all active groups with synchronized timing"""
+        logger.info(f"broadcast_questions called with {len(session.questions)} questions")
+        
         for idx, question in enumerate(session.questions):
             question_num = idx + 1
+            logger.info(f"Broadcasting question {question_num}/20")
             
             # Broadcast this question to all active groups
             for group_id, group_state in session.group_states.items():
                 if not group_state.active:
+                    logger.warning(f"Group {group_id} is not active, skipping")
                     continue
                 
                 try:
+                    logger.info(f"Sending Q{question_num} to group {group_id}")
                     # Send poll
                     poll_message = await context.bot.send_poll(
                         chat_id=group_id,
