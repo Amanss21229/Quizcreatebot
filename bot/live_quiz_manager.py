@@ -464,6 +464,14 @@ Good luck! 🍀
 📌 **SCORING: NEET PATTERN**
 ✅ Correct = +4 | ❌ Wrong = -1 | ⏭️ Skip = 0
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 **NEED SOLUTIONS?**
+📝 Reply to any quiz question with /explain
+🔍 Get detailed AI-powered explanations instantly!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 🎉 Congratulations to all participants!
 
 【~@DrQuizRobot】
