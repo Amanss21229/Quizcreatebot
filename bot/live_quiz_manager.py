@@ -396,41 +396,39 @@ Good luck! 🍀
         group_stats = session.get_group_stats()
         
         # Header
-        chapter_display = session.chapter[:30] if len(session.chapter) <= 30 else session.chapter[:27] + "..."
+        chapter_display = session.chapter[:25] if len(session.chapter) <= 25 else session.chapter[:22] + "..."
         leaderboard = f"""
-╔═══════════════════════════════════════════════╗
-║        🏆 GLOBAL LIVE QUIZ RESULTS 🏆         ║
-║           Chapter: {chapter_display}           
-╚═══════════════════════════════════════════════╝
+╔═══════════════════════════════════════╗
+║    🏆 GLOBAL LIVE QUIZ RESULTS 🏆    ║
+║       Chapter: {chapter_display}       
+╚═══════════════════════════════════════╝
 
 📊 **QUIZ STATISTICS**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👥 Total Participants: {len(session.participants)} students
-🌍 Groups Participated: {len(group_stats)} groups
-📚 Total Questions: {len(session.questions)} MCQs
-⏱️  Time per Question: 45 seconds
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👥 Participants: {len(session.participants)} | 🌍 Groups: {len(group_stats)}
+📚 Questions: {len(session.questions)} MCQs | ⏱️ Timer: 45s/Q
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🏅 **LEADERBOARD - TOP PERFORMERS**
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏅 **TOP PERFORMERS**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
         
-        # Top participants with detailed stats
+        # Top participants with detailed stats (limit to 20 to fit in message)
         medal_emojis = ["🥇", "🥈", "🥉"]
+        max_display = min(20, len(sorted_participants))
         
-        for rank, participant in enumerate(sorted_participants[:50], 1):  # Top 50
+        for rank, participant in enumerate(sorted_participants[:max_display], 1):
             # Rank display with medals
             if rank <= 3:
                 rank_display = medal_emojis[rank - 1]
             elif rank <= 10:
-                rank_display = f"🎖️  Rank #{rank}"
+                rank_display = f"🎖️#{rank}"
             else:
-                rank_display = f"🏅 Rank #{rank}"
+                rank_display = f"🏅#{rank}"
             
             # User display
             username_display = f"@{participant.username}" if participant.username else participant.first_name
+            if len(username_display) > 20:
+                username_display = username_display[:17] + "..."
             
             # Calculate detailed stats
             total_score = participant.score
@@ -440,38 +438,27 @@ Good luck! 🍀
             total_time = participant.total_time
             
             # Format group name
-            group_name = participant.group_title[:30] if len(participant.group_title) <= 30 else participant.group_title[:27] + "..."
+            group_name = participant.group_title[:20] if len(participant.group_title) <= 20 else participant.group_title[:17] + "..."
             
             leaderboard += f"""
-{rank_display}  **{username_display}**
+{rank_display} **{username_display}**
+   💯 Score: {total_score:+d} | ✅ Right: {participant.correct} (+{correct_marks})
+   ❌ Wrong: {participant.wrong} ({negative_marks}) | ⏭️ Skip: {participant.unattempted}
+   📝 Attempt: {total_attempted}/{len(session.questions)} | ⏱️ Time: {total_time:.1f}s
+   🏛️ {group_name}
 
-   💯 Total Score: {total_score:+d} marks
-   ✅ Correct Answers: {participant.correct}/{len(session.questions)} (+{correct_marks} marks)
-   ❌ Wrong Answers: {participant.wrong} ({negative_marks} marks)
-   ⏭️  Unattempted: {participant.unattempted} (0 marks)
-   📝 Total Attempted: {total_attempted}/{len(session.questions)}
-   ⏱️  Total Time: {total_time:.1f}s
-   🏛️  Group: {group_name}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
         
         # Footer
-        if len(sorted_participants) > 50:
-            leaderboard += f"\n💬 ... and {len(sorted_participants) - 50} more participants competed!\n\n"
+        if len(sorted_participants) > max_display:
+            leaderboard += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n💬 +{len(sorted_participants) - max_display} more participants competed!\n\n"
         
-        leaderboard += """
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        leaderboard += """━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📌 **SCORING PATTERN (NEET)**
-✅ Correct Answer = +4 marks
-❌ Wrong Answer = -1 mark  
-⏭️  Unattempted = 0 marks
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📌 **SCORING: NEET PATTERN**
+✅ Correct = +4 | ❌ Wrong = -1 | ⏭️ Skip = 0
 
 🎉 Congratulations to all participants!
-💪 Keep practicing and improving!
 
 【~@DrQuizRobot】
 """
