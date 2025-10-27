@@ -455,6 +455,9 @@ Good luck! 🍀
             if len(username_display) > 20:
                 username_display = username_display[:17] + "..."
             
+            # Make name clickable
+            clickable_name = f"[{username_display}](tg://user?id={participant.user_id})"
+            
             # Calculate detailed stats
             total_score = participant.score
             correct_marks = participant.correct * 4
@@ -466,7 +469,7 @@ Good luck! 🍀
             group_name = participant.group_title[:18] if len(participant.group_title) <= 18 else participant.group_title[:15] + "..."
             
             leaderboard += f"""
-{rank_display} **{username_display}**
+{rank_display} **{clickable_name}**
    💯 Score: {total_score:+d} | ✅ {participant.correct} ❌ {participant.wrong} ⏭️ {participant.unattempted}
    ⏱️ {total_time:.1f}s | 🏛️ {group_name}
 
@@ -480,6 +483,12 @@ Good luck! 🍀
 
 📌 **SCORING: NEET PATTERN**
 ✅ Correct = +4 | ❌ Wrong = -1 | ⏭️ Skip = 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 **Need Explanation?**
+Reply to any quiz question with `/explain`
+to get detailed AI-powered explanation!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -560,6 +569,9 @@ Good luck! 🍀
             if len(username_display) > 18:
                 username_display = username_display[:15] + "..."
             
+            # Make name clickable
+            clickable_name = f"[{username_display}](tg://user?id={participant.user_id})"
+            
             # Performance indicator
             accuracy = (participant.correct / (participant.correct + participant.wrong) * 100) if (participant.correct + participant.wrong) > 0 else 0
             if accuracy >= 80:
@@ -580,7 +592,7 @@ Good luck! 🍀
             time_taken = participant.total_time
             
             leaderboard += f"""
-{rank_emoji} **{username_display}** {perf_emoji}
+{rank_emoji} **{clickable_name}** {perf_emoji}
 ├─ 🌍 Global Rank: #{global_rank} | 🏛️ Group Rank: #{group_rank}
 ├─ 💯 **Score:** {total_score:+d} points
 ├─ ✅ Correct: {correct} (+{correct*4}) | ❌ Wrong: {wrong} ({wrong*-1})
