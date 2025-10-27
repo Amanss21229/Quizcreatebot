@@ -217,7 +217,7 @@ class LiveQuizCoordinator:
         """Wait 5 minutes then start the quiz in all groups"""
         try:
             # Wait 5 minutes (300 seconds)
-            await asyncio.sleep(30)
+            await asyncio.sleep(300)
             
             # Start the quiz
             await self.broadcast_quiz_start(
@@ -391,46 +391,90 @@ Good luck! 🍀
         self.active_session = None
     
     def generate_global_leaderboard(self, session: LiveQuizSession) -> str:
-        """Generate beautifully formatted global leaderboard"""
+        """Generate beautifully formatted global leaderboard with detailed scoring"""
         sorted_participants = session.get_sorted_participants()
         group_stats = session.get_group_stats()
         
         # Header
+        chapter_display = session.chapter[:30] if len(session.chapter) <= 30 else session.chapter[:27] + "..."
         leaderboard = f"""
-╔═══════════════════════════════════╗
-║   🏆 GLOBAL LIVE QUIZ RESULTS 🏆  ║
-║      Chapter: {session.chapter[:20]}       ║
-╚═══════════════════════════════════╝
+╔═══════════════════════════════════════════════╗
+║        🏆 GLOBAL LIVE QUIZ RESULTS 🏆         ║
+║           Chapter: {chapter_display}           
+╚═══════════════════════════════════════════════╝
 
-📈 **Total Participants:** {len(session.participants)} students
-🌍 **Groups Participated:** {len(group_stats)} groups
-📚 **Total Questions:** {len(session.questions)}
+📊 **QUIZ STATISTICS**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👥 Total Participants: {len(session.participants)} students
+🌍 Groups Participated: {len(group_stats)} groups
+📚 Total Questions: {len(session.questions)} MCQs
+⏱️  Time per Question: 45 seconds
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏅 **LEADERBOARD - TOP PERFORMERS**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
         
-        # Top participants
+        # Top participants with detailed stats
         medal_emojis = ["🥇", "🥈", "🥉"]
         
         for rank, participant in enumerate(sorted_participants[:50], 1):  # Top 50
-            medal = medal_emojis[rank - 1] if rank <= 3 else f"🏅 #{rank}"
+            # Rank display with medals
+            if rank <= 3:
+                rank_display = medal_emojis[rank - 1]
+            elif rank <= 10:
+                rank_display = f"🎖️  Rank #{rank}"
+            else:
+                rank_display = f"🏅 Rank #{rank}"
             
+            # User display
             username_display = f"@{participant.username}" if participant.username else participant.first_name
             
+            # Calculate detailed stats
+            total_score = participant.score
+            correct_marks = participant.correct * 4
+            negative_marks = participant.wrong * -1
+            total_attempted = participant.total_attempts
+            total_time = participant.total_time
+            
+            # Format group name
+            group_name = participant.group_title[:30] if len(participant.group_title) <= 30 else participant.group_title[:27] + "..."
+            
             leaderboard += f"""
-{medal} **{username_display}**
-   📊 Score: {participant.score:+d} marks
-   ✅ Correct: {participant.correct}/{len(session.questions)} | ❌ Wrong: {participant.wrong} | ⏱️ Avg Time: {participant.total_time/max(participant.total_attempts, 1):.1f}s
-   🏛️ From: {participant.group_title[:25]}
+{rank_display}  **{username_display}**
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   💯 Total Score: {total_score:+d} marks
+   ✅ Correct Answers: {participant.correct}/{len(session.questions)} (+{correct_marks} marks)
+   ❌ Wrong Answers: {participant.wrong} ({negative_marks} marks)
+   ⏭️  Unattempted: {participant.unattempted} (0 marks)
+   📝 Total Attempted: {total_attempted}/{len(session.questions)}
+   ⏱️  Total Time: {total_time:.1f}s
+   🏛️  Group: {group_name}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
         
         # Footer
         if len(sorted_participants) > 50:
-            leaderboard += f"\n... and {len(sorted_participants) - 50} more participants!\n\n"
+            leaderboard += f"\n💬 ... and {len(sorted_participants) - 50} more participants competed!\n\n"
         
-        leaderboard += "\n🎉 Congratulations to all participants!\n\n【~@DrQuizRobot】"
+        leaderboard += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 **SCORING PATTERN (NEET)**
+✅ Correct Answer = +4 marks
+❌ Wrong Answer = -1 mark  
+⏭️  Unattempted = 0 marks
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 Congratulations to all participants!
+💪 Keep practicing and improving!
+
+【~@DrQuizRobot】
+"""
         
         return leaderboard
     
