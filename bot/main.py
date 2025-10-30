@@ -384,6 +384,7 @@ Our developer is here to help you! 👨‍💻
     
     keyboard = [
         [InlineKeyboardButton("👨‍💻 Contact Developer", url="https://t.me/Aman_personalBot")]
+        [InlineKeyboardButton("📢 Checkout the Updates", url="https://t.me/founderofsansa")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -418,7 +419,7 @@ Let's connect with Aman Directly, privately and securely!
     
     keyboard = [
         [InlineKeyboardButton("👨‍💻 Meet the Developer", url="https://t.me/Aman_personalBot")],
-        [InlineKeyboardButton("📢 Checkout the Updates", url="https://t.me/founderofsana")]
+        [InlineKeyboardButton("📢 Checkout the Updates", url="https://t.me/founderofsansa")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
