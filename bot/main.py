@@ -384,7 +384,6 @@ Our developer is here to help you! 👨‍💻
     
     keyboard = [
         [InlineKeyboardButton("👨‍💻 Contact Developer", url="https://t.me/Aman_personalBot")]
-        [InlineKeyboardButton("📢 Checkout the Updates", url="https://t.me/founderofsansa")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
