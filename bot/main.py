@@ -2026,7 +2026,7 @@ async def anonymous_verification_callback(update: Update, context: ContextTypes.
 
 async def forward_user_message_to_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Forward any user message from private chat to admin group."""
-    ADMIN_GROUP_ID = -1002796976762
+    ADMIN_GROUP_ID = -1003049872361
     
     try:
         # Only handle messages from private chats
@@ -2078,7 +2078,7 @@ async def forward_user_message_to_admin(update: Update, context: ContextTypes.DE
 
 async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle admin replies in admin group and send them back to users."""
-    ADMIN_GROUP_ID = -1002796976762
+    ADMIN_GROUP_ID = -1003049872361
     
     try:
         # Only handle messages from admin group
@@ -2508,7 +2508,7 @@ def main():
     
     # Message forwarding system: Admin -> User
     # Handle admin replies in admin group and send them to users
-    ADMIN_GROUP_ID = -1002796976762
+    ADMIN_GROUP_ID = -1003049872361
     application.add_handler(
         MessageHandler(
             filters.Chat(chat_id=ADMIN_GROUP_ID) & filters.REPLY,
