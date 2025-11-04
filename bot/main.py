@@ -1739,6 +1739,172 @@ async def endlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"Please try again or contact support."
         )
 
+@admin_only
+async def forceliveleaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Force send global live quiz leaderboard to all groups (admin only)."""
+    try:
+        if not live_quiz_coordinator.active_session:
+            await update.message.reply_text(
+                "⚠️ No global live quiz session found!\n\n"
+                "There must be a completed or active quiz to send leaderboards."
+            )
+            return
+        
+        session = live_quiz_coordinator.active_session
+        
+        if not session.is_completed and not session.participants:
+            await update.message.reply_text(
+                "⚠️ Quiz has no participants yet!\n\n"
+                "Wait for quiz to have some participants before forcing leaderboard."
+            )
+            return
+        
+        await update.message.reply_text(
+            "🔄 Forcing leaderboard generation...\n\n"
+            "Please wait while I send leaderboards to all groups..."
+        )
+        
+        # Mark unattempted questions for all participants
+        for user_id in session.participants.keys():
+            session.mark_unattempted(user_id, session.get_question_count())
+        
+        # Get sorted participants with global ranks
+        sorted_participants = session.get_sorted_participants()
+        
+        # Create global rank mapping
+        global_rank_map = {}
+        for rank, participant in enumerate(sorted_participants, 1):
+            global_rank_map[participant.user_id] = rank
+        
+        # Send leaderboards to all groups
+        sent_count = 0
+        error_count = 0
+        
+        for group_id, group_state in session.group_states.items():
+            try:
+                # Send global leaderboard
+                global_leaderboard = live_quiz_coordinator.generate_global_leaderboard(session, sorted_participants)
+                await context.bot.send_message(
+                    chat_id=group_id,
+                    text=global_leaderboard,
+                    parse_mode='Markdown'
+                )
+                
+                await asyncio.sleep(0.5)
+                
+                # Send group-specific leaderboard
+                group_leaderboard = live_quiz_coordinator.generate_group_leaderboard(
+                    session, group_id, group_state.group_title, global_rank_map
+                )
+                if group_leaderboard:
+                    await context.bot.send_message(
+                        chat_id=group_id,
+                        text=group_leaderboard,
+                        parse_mode='Markdown'
+                    )
+                
+                sent_count += 1
+                await asyncio.sleep(0.3)
+                
+            except Exception as e:
+                logger.error(f"Failed to force send leaderboard to group {group_id}: {e}")
+                error_count += 1
+        
+        await update.message.reply_text(
+            "╔═══════════════════════════════════╗\n"
+            "║   ✅ LEADERBOARDS SENT ✅         ║\n"
+            "╚═══════════════════════════════════╝\n\n"
+            f"📊 Successfully sent to: {sent_count} groups\n"
+            f"❌ Failed: {error_count} groups\n\n"
+            f"🏆 Total Participants: {len(session.participants)}\n\n"
+            "【~@DrQuizRobot】"
+        )
+    
+    except Exception as e:
+        logger.error(f"Error forcing leaderboard: {e}", exc_info=True)
+        await update.message.reply_text(
+            f"❌ Error forcing leaderboard: {str(e)}\n\n"
+            f"Please try again or contact support."
+        )
+
+async def refresh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Refresh and reset bot state (available to all users)."""
+    try:
+        user = update.effective_user
+        is_admin = admin_manager.is_admin(user.id)
+        
+        await update.message.reply_text(
+            "🔄 Refreshing bot...\n\n"
+            "⏳ Please wait while I reset all systems..."
+        )
+        
+        status_parts = []
+        
+        # Check for active live quiz (don't clear if running)
+        if live_quiz_coordinator.active_session and live_quiz_coordinator.active_session.is_running:
+            await update.message.reply_text(
+                "⚠️ Global live quiz is currently running!\n\n"
+                "Cannot refresh while quiz is active. Please wait for quiz to complete or ask admin to end it first."
+            )
+            return
+        
+        # Clear only inactive quiz sessions (safe for all users)
+        cleared_sessions = 0
+        sessions_to_remove = []
+        for chat_id, session in list(quiz_session_manager.active_sessions.items()):
+            if not session.is_active:
+                sessions_to_remove.append(chat_id)
+        
+        for chat_id in sessions_to_remove:
+            del quiz_session_manager.active_sessions[chat_id]
+            cleared_sessions += 1
+        
+        if cleared_sessions > 0:
+            status_parts.append(f"✅ Cleared {cleared_sessions} inactive quiz session(s)")
+        
+        # Admin-only: Clear ALL quiz locks (including active ones)
+        if is_admin:
+            cleared_locks = len(quiz_lock_manager.locks)
+            if cleared_locks > 0:
+                quiz_lock_manager.locks.clear()
+                status_parts.append(f"✅ Released {cleared_locks} quiz lock(s) (admin)")
+        else:
+            # Regular users: Only inform about stuck locks
+            if len(quiz_lock_manager.locks) > 0:
+                status_parts.append(f"ℹ️ Found {len(quiz_lock_manager.locks)} quiz lock(s) - admin can clear these")
+        
+        # Refresh admin cache (safe for all users)
+        await admin_manager.refresh_cache(context.bot)
+        status_parts.append("✅ Refreshed admin cache")
+        
+        # Admin-only: Clear stuck live quiz session
+        if is_admin:
+            if live_quiz_coordinator.active_session and not live_quiz_coordinator.active_session.is_running:
+                live_quiz_coordinator.active_session = None
+                status_parts.append("✅ Cleared stuck live quiz session (admin)")
+        
+        # Log the refresh action
+        logger.info(f"Bot refreshed by user {user.id} ({user.first_name}) - Admin: {is_admin}")
+        
+        status_message = "\n".join(status_parts) if status_parts else "✅ All systems already clean"
+        
+        await update.message.reply_text(
+            "╔═══════════════════════════════════╗\n"
+            "║   ✅ BOT REFRESHED ✅             ║\n"
+            "╚═══════════════════════════════════╝\n\n"
+            f"{status_message}\n\n"
+            "🎉 Bot refresh completed!\n\n"
+            "You can now use all commands normally.\n\n"
+            "【~@DrQuizRobot】"
+        )
+    
+    except Exception as e:
+        logger.error(f"Error during bot refresh: {e}", exc_info=True)
+        await update.message.reply_text(
+            f"❌ Error during refresh: {str(e)}\n\n"
+            f"Bot may still be operational. Try again if issues persist."
+        )
+
 @bot_or_group_admin_only
 async def welcomeon_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Enable welcome messages in a group (bot admin or group admin only)."""
@@ -2672,6 +2838,10 @@ def main():
     application.add_handler(CommandHandler("adminlist", adminlist_command))
     application.add_handler(CommandHandler("startlivequiz", startlivequiz_command))
     application.add_handler(CommandHandler("endlivequiz", endlivequiz_command))
+    application.add_handler(CommandHandler("forceliveleaderboard", forceliveleaderboard_command))
+    
+    # User utility commands
+    application.add_handler(CommandHandler("refresh", refresh_command))
     
     # Welcome commands (bot admin or group admin)
     application.add_handler(CommandHandler("welcomeon", welcomeon_command))
