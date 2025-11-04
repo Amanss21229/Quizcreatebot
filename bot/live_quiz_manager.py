@@ -179,7 +179,7 @@ class LiveQuizCoordinator:
         return session
     
     async def send_countdown_reminder(self, context: ContextTypes.DEFAULT_TYPE, 
-                                     group_ids: List[int], chapter: str):
+                                     group_ids: List[int], chapter: str, question_count: int):
         """Send 1-minute countdown reminder to all groups and users"""
         reminder_message = f"""
 ╔═══════════════════════════════════╗
@@ -189,7 +189,7 @@ class LiveQuizCoordinator:
 ⏰ **COUNTDOWN: 1 MINUTE**
 
 🎯 **Chapter:** {chapter}
-📝 **Questions:** 45 MCQs
+📝 **Questions:** {question_count} MCQs
 ⏱️ **Timer:** {self.question_duration} seconds per question
 🌍 **Type:** GLOBAL LIVE QUIZ
 

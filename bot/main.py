@@ -1517,7 +1517,7 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
             "Usage: /startlivequiz <chapter name>\n\n"
             "Example: /startlivequiz Thermodynamics\n"
             "Example: /startlivequiz Human Physiology\n\n"
-            "This will start a global live quiz with 45 questions across ALL groups!"
+            "This will start a global live quiz across ALL groups!"
         )
         return
     
@@ -1526,22 +1526,73 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
     
     keyboard = [
         [
-            InlineKeyboardButton("⚡ 15 seconds", callback_data=f"livequiz_time_15_{chapter}"),
-            InlineKeyboardButton("🔥 30 seconds", callback_data=f"livequiz_time_30_{chapter}")
+            InlineKeyboardButton("📝 10 Questions", callback_data=f"livequiz_count_10_{chapter}"),
+            InlineKeyboardButton("📝 15 Questions", callback_data=f"livequiz_count_15_{chapter}"),
+            InlineKeyboardButton("📝 20 Questions", callback_data=f"livequiz_count_20_{chapter}")
         ],
         [
-            InlineKeyboardButton("⏱️ 45 seconds", callback_data=f"livequiz_time_45_{chapter}"),
-            InlineKeyboardButton("🎯 60 seconds", callback_data=f"livequiz_time_60_{chapter}")
+            InlineKeyboardButton("📝 25 Questions", callback_data=f"livequiz_count_25_{chapter}"),
+            InlineKeyboardButton("📝 30 Questions", callback_data=f"livequiz_count_30_{chapter}"),
+            InlineKeyboardButton("📝 35 Questions", callback_data=f"livequiz_count_35_{chapter}")
+        ],
+        [
+            InlineKeyboardButton("📝 40 Questions", callback_data=f"livequiz_count_40_{chapter}"),
+            InlineKeyboardButton("📝 45 Questions", callback_data=f"livequiz_count_45_{chapter}"),
+            InlineKeyboardButton("📝 50 Questions", callback_data=f"livequiz_count_50_{chapter}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
         f"╔═══════════════════════════════════╗\n"
+        f"║  📝 SELECT QUESTION COUNT 📝      ║\n"
+        f"╚═══════════════════════════════════╝\n\n"
+        f"📚 **Chapter:** {chapter}\n"
+        f"🌍 **Type:** GLOBAL LIVE QUIZ\n\n"
+        f"🎯 Choose how many questions:\n\n"
+        f"【~@DrQuizRobot】",
+        reply_markup=reply_markup
+    )
+
+async def livequiz_count_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle question count selection for live quiz."""
+    query = update.callback_query
+    await query.answer()
+    
+    if not admin_manager.is_admin(query.from_user.id):
+        await query.edit_message_text("❌ Only admins can start live quizzes!")
+        return
+    
+    if live_quiz_coordinator.has_active_session():
+        await query.edit_message_text(
+            "⚠️ A global live quiz is already in progress!\n\n"
+            "Please wait for the current session to complete before starting a new one."
+        )
+        return
+    
+    data = query.data
+    parts = data.split('_')
+    question_count = int(parts[2])
+    chapter = '_'.join(parts[3:])
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("⚡ 15 seconds", callback_data=f"livequiz_time_{question_count}_15_{chapter}"),
+            InlineKeyboardButton("🔥 30 seconds", callback_data=f"livequiz_time_{question_count}_30_{chapter}")
+        ],
+        [
+            InlineKeyboardButton("⏱️ 45 seconds", callback_data=f"livequiz_time_{question_count}_45_{chapter}"),
+            InlineKeyboardButton("🎯 60 seconds", callback_data=f"livequiz_time_{question_count}_60_{chapter}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        f"╔═══════════════════════════════════╗\n"
         f"║  ⏱️ SELECT TIME PER QUESTION ⏱️  ║\n"
         f"╚═══════════════════════════════════╝\n\n"
         f"📚 **Chapter:** {chapter}\n"
-        f"📝 **Questions:** 45 MCQs\n"
+        f"📝 **Questions:** {question_count} MCQs\n"
         f"🌍 **Type:** GLOBAL LIVE QUIZ\n\n"
         f"⏱️ Choose how much time per question:\n\n"
         f"【~@DrQuizRobot】",
@@ -1566,8 +1617,9 @@ async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_T
     
     data = query.data
     parts = data.split('_')
-    time_seconds = int(parts[2])
-    chapter = '_'.join(parts[3:])
+    question_count = int(parts[2])
+    time_seconds = int(parts[3])
+    chapter = '_'.join(parts[4:])
     
     live_quiz_coordinator.question_duration = time_seconds
     
@@ -1575,13 +1627,14 @@ async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_T
     
     await query.edit_message_text(
         f"🔄 Generating quiz for chapter: **{chapter}**\n\n"
-        f"⏱️ Time per question: **{time_seconds} seconds**\n"
-        f"Please wait while I prepare 45 NEET-level questions in both languages..."
+        f"📝 Questions: **{question_count} MCQs**\n"
+        f"⏱️ Time per question: **{time_seconds} seconds**\n\n"
+        f"Please wait while I prepare {question_count} NEET-level questions in both languages..."
     )
     
     try:
         # Generate questions in both English and Hindi
-        questions_english = quiz_gen.generate_quiz(chapter, 45, 'english')
+        questions_english = quiz_gen.generate_quiz(chapter, question_count, 'english')
         
         if not questions_english:
             await query.edit_message_text(
@@ -1592,6 +1645,7 @@ async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_T
         
         await query.edit_message_text(
             f"🔄 English questions generated! Now translating to Hindi...\n\n"
+            f"📝 Questions: **{question_count} MCQs**\n"
             f"⏱️ Time per question: **{time_seconds} seconds**"
         )
         
@@ -1618,14 +1672,14 @@ async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text(
             f"✅ Quiz generated successfully!\n\n"
             f"📚 Chapter: {chapter}\n"
-            f"📝 Questions: 45 MCQs (English + Hindi)\n"
+            f"📝 Questions: {question_count} MCQs (English + Hindi)\n"
             f"⏱️ Time/Question: {time_seconds}s\n"
             f"🌍 Target Groups: {len(all_groups)} groups\n\n"
             f"⏰ Sending 1-minute countdown now..."
         )
         
         sent_count = await live_quiz_coordinator.send_countdown_reminder(
-            context, all_groups, chapter
+            context, all_groups, chapter, question_count
         )
         
         await context.bot.send_message(
@@ -2664,6 +2718,7 @@ def main():
     application.add_handler(CallbackQueryHandler(anonymous_verification_callback, pattern="^verify:"))
     application.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
     application.add_handler(CallbackQueryHandler(quiz_time_callback, pattern="^quiz_time_"))
+    application.add_handler(CallbackQueryHandler(livequiz_count_callback, pattern="^livequiz_count_"))
     application.add_handler(CallbackQueryHandler(livequiz_time_callback, pattern="^livequiz_time_"))
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
     
