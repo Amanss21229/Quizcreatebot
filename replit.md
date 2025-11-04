@@ -14,7 +14,7 @@ Preferred communication style: Simple, everyday language.
 
 **Bot Framework**: Python-based Telegram bot leveraging the `python-telegram-bot` library with async/await for handling user interactions.
 
-**Command Handler System**: Access control implemented with decorator-based permissions (`admin_only`, `bot_or_group_admin_only`), including a special anonymous admin verification flow.
+**Command Handler System**: Access control implemented with decorator-based permissions (`admin_only`, `bot_or_group_admin_only`, `group_admin_only`), including a special anonymous admin verification flow. The `group_admin_only` decorator allows everyone in private chats while restricting to admins in groups.
 
 **Core Components**:
 

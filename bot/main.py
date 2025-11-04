@@ -94,6 +94,63 @@ def bot_or_group_admin_only(func):
         return
     return wrapper
 
+def group_admin_only(func):
+    """Decorator: In groups, only admins can use. In private chats, anyone can use."""
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat = update.effective_chat
+        
+        # In private chats, allow everyone
+        if chat.type == 'private':
+            return await func(update, context)
+        
+        # In groups/supergroups, check admin permissions
+        if chat.type in ['group', 'supergroup']:
+            # Check if this is a verified anonymous admin execution
+            if context.user_data.get('verified_user_id'):
+                user_id = context.user_data['verified_user_id']
+                # Clear the verification data after use
+                context.user_data.pop('verified_user_id', None)
+                context.user_data.pop('verified_user', None)
+                
+                # User is already verified as admin, execute the command
+                return await func(update, context)
+            
+            # Check if this is an anonymous admin
+            if anonymous_verifier.is_anonymous_admin(update):
+                # Send verification button
+                command_name = update.message.text.split()[0] if update.message.text else "command"
+                await anonymous_verifier.require_verification(
+                    update, context, command_name, func
+                )
+                return
+            
+            # Get user_id
+            if not update.effective_user:
+                await update.message.reply_text("❌ Unable to identify user.")
+                return
+            
+            user_id = update.effective_user.id
+            
+            # Check if user is bot admin
+            if admin_manager.is_admin(user_id):
+                return await func(update, context)
+            
+            # Check if user is group admin
+            try:
+                member = await context.bot.get_chat_member(chat.id, user_id)
+                if member.status in ['creator', 'administrator']:
+                    return await func(update, context)
+            except:
+                pass
+            
+            await update.message.reply_text("❌ This command is only available for group admins in groups.")
+            return
+        
+        # Default: execute the function
+        return await func(update, context)
+    return wrapper
+
 def check_force_join(func):
     """Decorator to check if user has joined required groups/channels."""
     @wraps(func)
@@ -1690,9 +1747,9 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         await update.message.reply_text(welcome_message)
 
-@bot_or_group_admin_only
+@group_admin_only
 async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Set quiz language preference (bot admin or group admin only)."""
+    """Set quiz language preference. Anyone in private chat, admins only in groups."""
     chat = update.effective_chat
     current_language = language_manager.get_language(chat.id)
     
@@ -1729,28 +1786,33 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
+    chat_type = update.effective_chat.type
     
-    # Check if user is bot admin or group admin
+    # In private chats, everyone is authorized
+    # In groups, only bot admins or group admins are authorized
     is_authorized = False
     
-    # Check bot admin
-    if admin_manager.is_admin(user_id):
+    if chat_type == 'private':
         is_authorized = True
-    # Check group admin
-    elif update.effective_chat.type in ['group', 'supergroup']:
-        try:
-            member = await context.bot.get_chat_member(chat_id, user_id)
-            if member.status in ['creator', 'administrator']:
-                is_authorized = True
-        except:
-            pass
+    else:
+        # Check bot admin
+        if admin_manager.is_admin(user_id):
+            is_authorized = True
+        # Check group admin
+        elif chat_type in ['group', 'supergroup']:
+            try:
+                member = await context.bot.get_chat_member(chat_id, user_id)
+                if member.status in ['creator', 'administrator']:
+                    is_authorized = True
+            except:
+                pass
     
     if not is_authorized:
         await query.edit_message_text(
             "╔═══════════════════════════════╗\n"
             "║   ❌ UNAUTHORIZED ❌           ║\n"
             "╚═══════════════════════════════╝\n\n"
-            "🔒 Only admins can change language\n\n"
+            "🔒 Only admins can change language in groups\n\n"
             "【~@DrQuizRobot】"
         )
         return
