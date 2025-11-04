@@ -59,10 +59,12 @@ class GroupQuizState:
 class LiveQuizSession:
     """Represents a global live quiz session"""
     
-    def __init__(self, session_id: str, chapter: str, questions: List[dict], admin_id: int):
+    def __init__(self, session_id: str, chapter: str, questions_english: List[dict], 
+                 questions_hindi: List[dict], admin_id: int):
         self.session_id = session_id
         self.chapter = chapter
-        self.questions = questions
+        self.questions_english = questions_english
+        self.questions_hindi = questions_hindi
         self.admin_id = admin_id
         self.start_time: Optional[datetime] = None
         self.end_time: Optional[datetime] = None
@@ -80,6 +82,14 @@ class LiveQuizSession:
         
         self.is_running = False
         self.is_completed = False
+    
+    def get_questions(self, language: str = 'english') -> List[dict]:
+        """Get questions in the specified language"""
+        return self.questions_hindi if language == 'hindi' else self.questions_english
+    
+    def get_question_count(self) -> int:
+        """Get total number of questions"""
+        return len(self.questions_english)
     
     def add_group(self, group_id: int, group_title: str):
         """Add a group to the session"""
@@ -158,13 +168,14 @@ class LiveQuizCoordinator:
         """Check if there's an active live quiz session"""
         return self.active_session is not None and not self.active_session.is_completed
     
-    def create_session(self, chapter: str, questions: List[dict], admin_id: int) -> LiveQuizSession:
-        """Create a new live quiz session"""
+    def create_session(self, chapter: str, questions_english: List[dict], 
+                       questions_hindi: List[dict], admin_id: int) -> LiveQuizSession:
+        """Create a new live quiz session with both English and Hindi questions"""
         session_id = f"live_{int(datetime.now().timestamp())}"
-        session = LiveQuizSession(session_id, chapter, questions, admin_id)
+        session = LiveQuizSession(session_id, chapter, questions_english, questions_hindi, admin_id)
         self.active_session = session
         self.session_history.append(session_id)
-        logger.info(f"Created live quiz session {session_id} for chapter: {chapter}")
+        logger.info(f"Created live quiz session {session_id} for chapter: {chapter} with {len(questions_english)} questions")
         return session
     
     async def send_countdown_reminder(self, context: ContextTypes.DEFAULT_TYPE, 
@@ -178,7 +189,7 @@ class LiveQuizCoordinator:
 ⏰ **COUNTDOWN: 1 MINUTE**
 
 🎯 **Chapter:** {chapter}
-📝 **Questions:** 20 MCQs
+📝 **Questions:** 45 MCQs
 ⏱️ **Timer:** {self.question_duration} seconds per question
 🌍 **Type:** GLOBAL LIVE QUIZ
 
@@ -228,7 +239,8 @@ class LiveQuizCoordinator:
                                          group_ids: List[int],
                                          quiz_gen,
                                          quiz_lock_manager,
-                                         stats_manager):
+                                         stats_manager,
+                                         language_manager):
         """Wait 1 minute then start the quiz in all groups"""
         try:
             # Wait 1 minute (60 seconds)
@@ -237,7 +249,7 @@ class LiveQuizCoordinator:
             # Start the quiz
             await self.broadcast_quiz_start(
                 context, session, group_ids, quiz_gen, 
-                quiz_lock_manager, stats_manager
+                quiz_lock_manager, stats_manager, language_manager
             )
             
         except asyncio.CancelledError:
@@ -250,7 +262,8 @@ class LiveQuizCoordinator:
                                    group_ids: List[int],
                                    quiz_gen,
                                    quiz_lock_manager,
-                                   stats_manager):
+                                   stats_manager,
+                                   language_manager):
         """Start the quiz simultaneously in all groups"""
         session.is_running = True
         session.start_time = datetime.now()
@@ -295,9 +308,9 @@ Good luck! 🍀
                 session.deactivate_group(group_id)
         
         # Now broadcast questions one by one
-        logger.info(f"Starting to broadcast {len(session.questions)} questions to {len(session.group_states)} groups")
+        logger.info(f"Starting to broadcast {session.get_question_count()} questions to {len(session.group_states)} groups")
         try:
-            await self.broadcast_questions(context, session, quiz_lock_manager)
+            await self.broadcast_questions(context, session, quiz_lock_manager, language_manager)
         except Exception as e:
             logger.error(f"Fatal error broadcasting questions: {e}", exc_info=True)
             # Send error message to all groups
@@ -311,13 +324,21 @@ Good luck! 🍀
     
     async def broadcast_questions(self, context: ContextTypes.DEFAULT_TYPE,
                                   session: LiveQuizSession,
-                                  quiz_lock_manager):
-        """Broadcast questions to all active groups with synchronized timing"""
-        logger.info(f"broadcast_questions called with {len(session.questions)} questions")
+                                  quiz_lock_manager,
+                                  language_manager):
+        """Broadcast questions to all active groups with synchronized timing and language support"""
+        num_questions = session.get_question_count()
+        logger.info(f"broadcast_questions called with {num_questions} questions")
         
-        for idx, question in enumerate(session.questions):
+        # Pre-fetch language preferences for all groups
+        group_languages = {}
+        for group_id in session.group_states.keys():
+            group_languages[group_id] = language_manager.get_language(group_id)
+            logger.info(f"Group {group_id} language preference: {group_languages[group_id]}")
+        
+        for idx in range(num_questions):
             question_num = idx + 1
-            logger.info(f"Broadcasting question {question_num}/20")
+            logger.info(f"Broadcasting question {question_num}/{num_questions}")
             
             # Broadcast this question to all active groups
             for group_id, group_state in session.group_states.items():
@@ -326,11 +347,17 @@ Good luck! 🍀
                     continue
                 
                 try:
-                    logger.info(f"Sending Q{question_num} to group {group_id}")
+                    # Get the appropriate language version for this group
+                    group_lang = group_languages.get(group_id, 'english')
+                    questions = session.get_questions(group_lang)
+                    question = questions[idx]
+                    
+                    logger.info(f"Sending Q{question_num} to group {group_id} in {group_lang}")
+                    
                     # Send poll
                     poll_message = await context.bot.send_poll(
                         chat_id=group_id,
-                        question=f"Q{question_num}/20: {question['question']}",
+                        question=f"Q{question_num}/{num_questions}: {question['question']}",
                         options=question['options'],
                         type='quiz',
                         correct_option_id=int(question['correct_answer']),
@@ -345,7 +372,7 @@ Good luck! 🍀
                     # Register poll in global map for easy lookup
                     self.poll_to_question_map[poll_id] = (session.session_id, idx, group_id)
                     
-                    logger.info(f"Sent live quiz Q{question_num} to group {group_id}, poll_id: {poll_id}")
+                    logger.info(f"Sent live quiz Q{question_num} to group {group_id}, poll_id: {poll_id}, lang: {group_lang}")
                     
                 except Exception as e:
                     logger.error(f"Failed to send question {question_num} to group {group_id}: {e}")
@@ -354,7 +381,7 @@ Good luck! 🍀
                         session.deactivate_group(group_id)
             
             # Wait for question duration before next question
-            if question_num < len(session.questions):
+            if question_num < num_questions:
                 await asyncio.sleep(self.question_duration + 2)  # +2 seconds buffer
         
         # All questions sent, wait a bit then finalize
@@ -371,7 +398,7 @@ Good luck! 🍀
         
         # Mark unattempted questions for all participants
         for user_id in session.participants.keys():
-            session.mark_unattempted(user_id, len(session.questions))
+            session.mark_unattempted(user_id, session.get_question_count())
         
         # Get sorted participants with global ranks
         sorted_participants = session.get_sorted_participants()
@@ -441,7 +468,7 @@ Good luck! 🍀
 📊 **QUIZ STATISTICS**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 👥 Participants: {len(session.participants)} | 🌍 Groups: {len(group_stats)}
-📚 Questions: {len(session.questions)} MCQs | ⏱️ Timer: {self.question_duration}s/Q
+📚 Questions: {session.get_question_count()} MCQs | ⏱️ Timer: {self.question_duration}s/Q
 
 🏅 **TOP 50 PERFORMERS GLOBALLY**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

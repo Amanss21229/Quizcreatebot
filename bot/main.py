@@ -1517,7 +1517,7 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
             "Usage: /startlivequiz <chapter name>\n\n"
             "Example: /startlivequiz Thermodynamics\n"
             "Example: /startlivequiz Human Physiology\n\n"
-            "This will start a global live quiz with 20 questions across ALL groups!"
+            "This will start a global live quiz with 45 questions across ALL groups!"
         )
         return
     
@@ -1541,7 +1541,7 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
         f"║  ⏱️ SELECT TIME PER QUESTION ⏱️  ║\n"
         f"╚═══════════════════════════════════╝\n\n"
         f"📚 **Chapter:** {chapter}\n"
-        f"📝 **Questions:** 20 MCQs\n"
+        f"📝 **Questions:** 45 MCQs\n"
         f"🌍 **Type:** GLOBAL LIVE QUIZ\n\n"
         f"⏱️ Choose how much time per question:\n\n"
         f"【~@DrQuizRobot】",
@@ -1576,20 +1576,35 @@ async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_T
     await query.edit_message_text(
         f"🔄 Generating quiz for chapter: **{chapter}**\n\n"
         f"⏱️ Time per question: **{time_seconds} seconds**\n"
-        f"Please wait while I prepare 20 NEET-level questions..."
+        f"Please wait while I prepare 45 NEET-level questions in both languages..."
     )
     
     try:
-        questions = quiz_gen.generate_quiz(chapter, 20, 'english')
+        # Generate questions in both English and Hindi
+        questions_english = quiz_gen.generate_quiz(chapter, 45, 'english')
         
-        if not questions:
+        if not questions_english:
             await query.edit_message_text(
-                f"❌ Failed to generate questions for chapter: {chapter}\n\n"
+                f"❌ Failed to generate English questions for chapter: {chapter}\n\n"
                 f"Please check the chapter name and try again."
             )
             return
         
-        session = live_quiz_coordinator.create_session(chapter, questions, admin_id)
+        await query.edit_message_text(
+            f"🔄 English questions generated! Now generating Hindi questions...\n\n"
+            f"⏱️ Time per question: **{time_seconds} seconds**"
+        )
+        
+        questions_hindi = quiz_gen.generate_quiz(chapter, 45, 'hindi')
+        
+        if not questions_hindi:
+            await query.edit_message_text(
+                f"❌ Failed to generate Hindi questions for chapter: {chapter}\n\n"
+                f"Please try again."
+            )
+            return
+        
+        session = live_quiz_coordinator.create_session(chapter, questions_english, questions_hindi, admin_id)
         
         all_groups = list(stats_manager.get_all_groups())
         
@@ -1603,7 +1618,7 @@ async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text(
             f"✅ Quiz generated successfully!\n\n"
             f"📚 Chapter: {chapter}\n"
-            f"📝 Questions: 20 MCQs\n"
+            f"📝 Questions: 45 MCQs (English + Hindi)\n"
             f"⏱️ Time/Question: {time_seconds}s\n"
             f"🌍 Target Groups: {len(all_groups)} groups\n\n"
             f"⏰ Sending 1-minute countdown now..."
@@ -1625,7 +1640,7 @@ async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_T
         session.countdown_task = asyncio.create_task(
             live_quiz_coordinator.start_quiz_after_countdown(
                 context, session, all_groups, quiz_gen, 
-                quiz_lock_manager, stats_manager
+                quiz_lock_manager, stats_manager, language_manager
             )
         )
         
