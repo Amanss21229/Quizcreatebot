@@ -2318,6 +2318,9 @@ async def track_group_members(update: Update, context: ContextTypes.DEFAULT_TYPE
         user = update.effective_user
         chat_id = update.effective_chat.id
         
+        # AUTO-TRACK GROUP: Add group to stats_manager for global quizzes
+        stats_manager.add_group(chat_id)
+        
         # Track the member (admin status updated periodically, not per-message)
         tagall_manager.track_member(
             chat_id=chat_id,
