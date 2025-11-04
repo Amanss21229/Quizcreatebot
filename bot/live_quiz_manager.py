@@ -151,7 +151,7 @@ class LiveQuizCoordinator:
     def __init__(self):
         self.active_session: Optional[LiveQuizSession] = None
         self.session_history: List[str] = []
-        self.question_duration = 45  # seconds per question
+        self.question_duration = 60  # seconds per question (default 1 minute)
         self.poll_to_question_map: Dict[str, tuple] = {}  # poll_id -> (session_id, question_index)
     
     def has_active_session(self) -> bool:
@@ -169,17 +169,17 @@ class LiveQuizCoordinator:
     
     async def send_countdown_reminder(self, context: ContextTypes.DEFAULT_TYPE, 
                                      group_ids: List[int], chapter: str):
-        """Send 5-minute countdown reminder to all groups and users"""
+        """Send 1-minute countdown reminder to all groups and users"""
         reminder_message = f"""
 ╔═══════════════════════════════════╗
 ║   🔴 LIVE QUIZ STARTING SOON! 🔴  ║
 ╚═══════════════════════════════════╝
 
-⏰ **COUNTDOWN: 5 MINUTES**
+⏰ **COUNTDOWN: 1 MINUTE**
 
 🎯 **Chapter:** {chapter}
 📝 **Questions:** 20 MCQs
-⏱️ **Timer:** 45 seconds per question
+⏱️ **Timer:** {self.question_duration} seconds per question
 🌍 **Type:** GLOBAL LIVE QUIZ
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -202,7 +202,7 @@ class LiveQuizCoordinator:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⏳ Quiz starts in **5 minutes**...
+⏳ Quiz starts in **1 minute**...
 
 【~@DrQuizRobot】
 """
@@ -229,10 +229,10 @@ class LiveQuizCoordinator:
                                          quiz_gen,
                                          quiz_lock_manager,
                                          stats_manager):
-        """Wait 5 minutes then start the quiz in all groups"""
+        """Wait 1 minute then start the quiz in all groups"""
         try:
-            # Wait 5 minutes (300 seconds)
-            await asyncio.sleep(300)
+            # Wait 1 minute (60 seconds)
+            await asyncio.sleep(60)
             
             # Start the quiz
             await self.broadcast_quiz_start(
@@ -261,7 +261,7 @@ class LiveQuizCoordinator:
 ╚═══════════════════════════════════╝
 
 📚 **Chapter:** {session.chapter}
-⏱️ **45 seconds per question**
+⏱️ **{self.question_duration} seconds per question**
 🌍 **Competing with ALL groups!**
 
 Good luck! 🍀
@@ -441,7 +441,7 @@ Good luck! 🍀
 📊 **QUIZ STATISTICS**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 👥 Participants: {len(session.participants)} | 🌍 Groups: {len(group_stats)}
-📚 Questions: {len(session.questions)} MCQs | ⏱️ Timer: 45s/Q
+📚 Questions: {len(session.questions)} MCQs | ⏱️ Timer: {self.question_duration}s/Q
 
 🏅 **TOP 50 PERFORMERS GLOBALLY**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

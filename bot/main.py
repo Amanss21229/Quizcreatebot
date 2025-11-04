@@ -913,7 +913,7 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
             
             if live_session and live_session.session_id == session_id:
                 question = live_session.questions[question_idx]
-                is_correct = (option_id == question['correct_option_index'])
+                is_correct = (option_id == int(question['correct_answer']))
                 
                 try:
                     chat = await context.bot.get_chat(group_id)
@@ -1467,8 +1467,58 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
     chapter = ' '.join(context.args)
     admin_id = update.effective_user.id
     
+    keyboard = [
+        [
+            InlineKeyboardButton("⚡ 15 seconds", callback_data=f"livequiz_time_15_{chapter}"),
+            InlineKeyboardButton("🔥 30 seconds", callback_data=f"livequiz_time_30_{chapter}")
+        ],
+        [
+            InlineKeyboardButton("⏱️ 45 seconds", callback_data=f"livequiz_time_45_{chapter}"),
+            InlineKeyboardButton("🎯 60 seconds", callback_data=f"livequiz_time_60_{chapter}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
     await update.message.reply_text(
+        f"╔═══════════════════════════════════╗\n"
+        f"║  ⏱️ SELECT TIME PER QUESTION ⏱️  ║\n"
+        f"╚═══════════════════════════════════╝\n\n"
+        f"📚 **Chapter:** {chapter}\n"
+        f"📝 **Questions:** 20 MCQs\n"
+        f"🌍 **Type:** GLOBAL LIVE QUIZ\n\n"
+        f"⏱️ Choose how much time per question:\n\n"
+        f"【~@DrQuizRobot】",
+        reply_markup=reply_markup
+    )
+
+async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle time selection for live quiz."""
+    query = update.callback_query
+    await query.answer()
+    
+    if not admin_manager.is_admin(query.from_user.id):
+        await query.edit_message_text("❌ Only admins can start live quizzes!")
+        return
+    
+    if live_quiz_coordinator.has_active_session():
+        await query.edit_message_text(
+            "⚠️ A global live quiz is already in progress!\n\n"
+            "Please wait for the current session to complete before starting a new one."
+        )
+        return
+    
+    data = query.data
+    parts = data.split('_')
+    time_seconds = int(parts[2])
+    chapter = '_'.join(parts[3:])
+    
+    live_quiz_coordinator.question_duration = time_seconds
+    
+    admin_id = query.from_user.id
+    
+    await query.edit_message_text(
         f"🔄 Generating quiz for chapter: **{chapter}**\n\n"
+        f"⏱️ Time per question: **{time_seconds} seconds**\n"
         f"Please wait while I prepare 20 NEET-level questions..."
     )
     
@@ -1476,7 +1526,7 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
         questions = quiz_gen.generate_quiz(chapter, 20, 'english')
         
         if not questions:
-            await update.message.reply_text(
+            await query.edit_message_text(
                 f"❌ Failed to generate questions for chapter: {chapter}\n\n"
                 f"Please check the chapter name and try again."
             )
@@ -1487,28 +1537,32 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
         all_groups = list(stats_manager.get_all_groups())
         
         if not all_groups:
-            await update.message.reply_text(
+            await query.edit_message_text(
                 "⚠️ No groups found!\n\n"
                 "The bot needs to be added to groups first before starting a global quiz."
             )
             return
         
-        await update.message.reply_text(
+        await query.edit_message_text(
             f"✅ Quiz generated successfully!\n\n"
             f"📚 Chapter: {chapter}\n"
             f"📝 Questions: 20 MCQs\n"
+            f"⏱️ Time/Question: {time_seconds}s\n"
             f"🌍 Target Groups: {len(all_groups)} groups\n\n"
-            f"⏰ Sending 5-minute countdown now..."
+            f"⏰ Sending 1-minute countdown now..."
         )
         
         sent_count = await live_quiz_coordinator.send_countdown_reminder(
             context, all_groups, chapter
         )
         
-        await update.message.reply_text(
-            f"✅ Countdown sent to {sent_count}/{len(all_groups)} groups!\n\n"
-            f"⏱️ Quiz will start in 5 minutes...\n\n"
-            f"Global leaderboard will be shared after quiz completion!"
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=(
+                f"✅ Countdown sent to {sent_count}/{len(all_groups)} groups!\n\n"
+                f"⏱️ Quiz will start in 1 minute...\n\n"
+                f"Global leaderboard will be shared after quiz completion!"
+            )
         )
         
         session.countdown_task = asyncio.create_task(
@@ -1520,9 +1574,12 @@ async def startlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TY
         
     except Exception as e:
         logger.error(f"Error starting live quiz: {e}", exc_info=True)
-        await update.message.reply_text(
-            f"❌ Error starting live quiz: {str(e)}\n\n"
-            f"Please try again or contact support."
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=(
+                f"❌ Error starting live quiz: {str(e)}\n\n"
+                f"Please try again or contact support."
+            )
         )
 
 @admin_only
@@ -2527,6 +2584,7 @@ def main():
     application.add_handler(CallbackQueryHandler(anonymous_verification_callback, pattern="^verify:"))
     application.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
     application.add_handler(CallbackQueryHandler(quiz_time_callback, pattern="^quiz_time_"))
+    application.add_handler(CallbackQueryHandler(livequiz_time_callback, pattern="^livequiz_time_"))
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
     
     application.add_error_handler(error_handler)
