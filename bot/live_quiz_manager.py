@@ -460,13 +460,13 @@ Good luck! 🍀
             else:
                 rank_display = f"🏅#{rank}"
             
-            # User display
-            username_display = f"@{participant.username}" if participant.username else participant.first_name
-            if len(username_display) > 20:
-                username_display = username_display[:17] + "..."
+            # User display - use first name instead of username
+            first_name_display = participant.first_name
+            if len(first_name_display) > 20:
+                first_name_display = first_name_display[:17] + "..."
             
             # Make name clickable (escape markdown chars)
-            escaped_name = escape_markdown(username_display)
+            escaped_name = escape_markdown(first_name_display)
             clickable_name = f"[{escaped_name}](tg://user?id={participant.user_id})"
             
             # Calculate detailed stats
