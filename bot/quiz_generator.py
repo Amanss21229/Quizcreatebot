@@ -139,6 +139,64 @@ Generate exactly {num_questions} questions now in valid JSON format."""
             logger.debug(f"Response text: {response_text[:500]}")
             raise ValueError("Failed to parse quiz questions from AI response")
     
+    def translate_questions(self, questions_english: List[Dict]) -> List[Dict]:
+        """
+        Translate English questions to Hindi while maintaining the same structure and correct answers.
+        
+        Args:
+            questions_english: List of questions in English
+        
+        Returns:
+            List of the SAME questions translated to Hindi
+        """
+        prompt = f"""You are an expert translator specializing in NEET medical entrance exam content.
+
+CRITICAL TASK: Translate the following questions from ENGLISH to HINDI (Devanagari script).
+
+STRICT REQUIREMENTS:
+1. Translate ONLY the question text and options - DO NOT change the correct_answer index
+2. Keep the EXACT SAME structure and format
+3. Use proper scientific Hindi terminology (देवनागरी लिपि)
+4. Maintain the SAME correct answer index (0, 1, 2, or 3) - DO NOT MODIFY IT
+5. Translate explanations as well if present
+6. Keep all NEET year references and NCERT mentions in the questions
+
+INPUT QUESTIONS (JSON):
+{json.dumps(questions_english, ensure_ascii=False, indent=2)}
+
+OUTPUT REQUIREMENTS:
+- Return EXACT SAME JSON structure
+- Translate question, options, and explanation to Hindi
+- Keep correct_answer index UNCHANGED
+- Use proper Hindi scientific terms
+- Maintain array order
+
+Generate the translated JSON now:"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Parse the translated questions
+            json_match = re.search(r'\[[\s\S]*\]', response_text)
+            if json_match:
+                questions_hindi = json.loads(json_match.group())
+            else:
+                questions_hindi = json.loads(response_text)
+            
+            # Ensure correct_answer indices match
+            for i, (eng_q, hin_q) in enumerate(zip(questions_english, questions_hindi)):
+                hin_q['correct_answer'] = eng_q['correct_answer']
+            
+            return questions_hindi
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error translating questions: {e}")
+            logger.error(f"Falling back to English questions")
+            return questions_english
+    
     def format_question_with_watermark(self, question_num: int, question_data: Dict) -> str:
         """Format a single question with watermark for display."""
         formatted = f"{question_num}. {question_data['question']}\n\n"

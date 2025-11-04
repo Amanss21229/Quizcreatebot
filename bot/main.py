@@ -969,8 +969,8 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
             live_session = live_quiz_coordinator.active_session
             
             if live_session and live_session.session_id == session_id:
-                question = live_session.questions[question_idx]
-                is_correct = (option_id == int(question['correct_answer']))
+                question_english = live_session.questions_english[question_idx]
+                is_correct = (option_id == int(question_english['correct_answer']))
                 
                 try:
                     chat = await context.bot.get_chat(group_id)
@@ -990,7 +990,7 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     time_taken
                 )
                 
-                logger.info(f"[LIVE QUIZ] Recorded answer from {user.first_name} (ID: {user.id}) in group {group_id}, correct: {is_correct}, question: {question_idx+1}/20")
+                logger.info(f"[LIVE QUIZ] Recorded answer from {user.first_name} (ID: {user.id}) in group {group_id}, correct: {is_correct}, question: {question_idx+1}/{live_session.get_question_count()}")
                 return
         
         session = quiz_session_manager.get_session_by_poll(poll_id)
@@ -1591,15 +1591,15 @@ async def livequiz_time_callback(update: Update, context: ContextTypes.DEFAULT_T
             return
         
         await query.edit_message_text(
-            f"🔄 English questions generated! Now generating Hindi questions...\n\n"
+            f"🔄 English questions generated! Now translating to Hindi...\n\n"
             f"⏱️ Time per question: **{time_seconds} seconds**"
         )
         
-        questions_hindi = quiz_gen.generate_quiz(chapter, 45, 'hindi')
+        questions_hindi = quiz_gen.translate_questions(questions_english)
         
-        if not questions_hindi:
+        if not questions_hindi or len(questions_hindi) != len(questions_english):
             await query.edit_message_text(
-                f"❌ Failed to generate Hindi questions for chapter: {chapter}\n\n"
+                f"❌ Failed to translate questions to Hindi for chapter: {chapter}\n\n"
                 f"Please try again."
             )
             return
