@@ -28,7 +28,7 @@ Preferred communication style: Simple, everyday language.
 - **Anonymous Admin Verification** (`anonymous_verifier.py`): Handles Telegram's anonymous admin limitations via token-based inline verification.
 - **Good Morning Wishes** (`good_morning_manager.py`): Automated daily motivational messages broadcast to all users and groups, with bilingual support and elegant formatting.
 - **Quiz Lock Manager** (`quiz_lock_manager.py`): Ensures mutual exclusion, allowing only one quiz per group/chat at a time.
-- **Global Live Quiz System** (`live_quiz_manager.py`): Facilitates synchronized quizzes across all groups simultaneously, including countdowns, real-time tracking, and a unified global leaderboard with NEET scoring.
+- **Global Live Quiz System** (`live_quiz_manager.py`): Facilitates synchronized quizzes across all groups simultaneously, including countdowns, real-time tracking, and a unified global leaderboard with NEET scoring. Admins can now select question count (10, 15, 20, 25, 30, 35, 40, 45, or 50) and time per question (15s, 30s, 45s, or 60s) via inline keyboard buttons.
 
 ### Data Persistence
 
