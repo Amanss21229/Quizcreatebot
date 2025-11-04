@@ -313,14 +313,21 @@ Good luck! 🍀
             await self.broadcast_questions(context, session, quiz_lock_manager, language_manager)
         except Exception as e:
             logger.error(f"Fatal error broadcasting questions: {e}", exc_info=True)
-            # Send error message to all groups
+            # Send error message to all groups and release locks
             error_msg = f"❌ Error broadcasting questions: {str(e)}\n\nPlease contact support."
             for group_id in session.group_states.keys():
                 try:
                     await context.bot.send_message(chat_id=group_id, text=error_msg)
-                    quiz_lock_manager.release_lock(group_id)
                 except:
                     pass
+                finally:
+                    # Always release lock even if sending error message fails
+                    quiz_lock_manager.release_lock(group_id)
+            
+            # Clear the active session since quiz failed
+            session.is_completed = True
+            self.active_session = None
+            logger.info(f"Cleared failed session {session.session_id}")
     
     async def broadcast_questions(self, context: ContextTypes.DEFAULT_TYPE,
                                   session: LiveQuizSession,
@@ -392,66 +399,70 @@ Good luck! 🍀
                                session: LiveQuizSession,
                                quiz_lock_manager):
         """Finalize the session and send global + group-specific leaderboards"""
-        session.is_running = False
-        session.is_completed = True
-        session.end_time = datetime.now()
-        
-        # Mark unattempted questions for all participants
-        for user_id in session.participants.keys():
-            session.mark_unattempted(user_id, session.get_question_count())
-        
-        # Get sorted participants with global ranks
-        sorted_participants = session.get_sorted_participants()
-        
-        # Create global rank mapping
-        global_rank_map = {}
-        for rank, participant in enumerate(sorted_participants, 1):
-            global_rank_map[participant.user_id] = rank
-        
-        # Generate and send leaderboards to all groups
-        for group_id, group_state in session.group_states.items():
-            try:
-                # Send global leaderboard (top 50)
-                global_leaderboard = self.generate_global_leaderboard(session, sorted_participants)
-                await context.bot.send_message(
-                    chat_id=group_id,
-                    text=global_leaderboard,
-                    parse_mode='Markdown'
-                )
-                
-                await asyncio.sleep(0.5)
-                
-                # Send group-specific leaderboard
-                group_leaderboard = self.generate_group_leaderboard(
-                    session, group_id, group_state.group_title, global_rank_map
-                )
-                if group_leaderboard:
+        try:
+            session.is_running = False
+            session.is_completed = True
+            session.end_time = datetime.now()
+            
+            # Mark unattempted questions for all participants
+            for user_id in session.participants.keys():
+                session.mark_unattempted(user_id, session.get_question_count())
+            
+            # Get sorted participants with global ranks
+            sorted_participants = session.get_sorted_participants()
+            
+            # Create global rank mapping
+            global_rank_map = {}
+            for rank, participant in enumerate(sorted_participants, 1):
+                global_rank_map[participant.user_id] = rank
+            
+            # Generate and send leaderboards to all groups
+            for group_id, group_state in session.group_states.items():
+                try:
+                    # Send global leaderboard (top 50)
+                    global_leaderboard = self.generate_global_leaderboard(session, sorted_participants)
                     await context.bot.send_message(
                         chat_id=group_id,
-                        text=group_leaderboard,
+                        text=global_leaderboard,
                         parse_mode='Markdown'
                     )
-                
-                # Release lock
-                quiz_lock_manager.release_lock(group_id)
-                
-                await asyncio.sleep(0.3)
-                
-            except Exception as e:
-                logger.error(f"Failed to send leaderboard to group {group_id}: {e}")
-        
-        logger.info(f"Live quiz session {session.session_id} completed with {len(session.participants)} participants")
-        
-        # Clean up poll mappings to avoid memory leaks
-        polls_to_remove = [poll_id for poll_id, (sess_id, _, _) in self.poll_to_question_map.items() 
-                          if sess_id == session.session_id]
-        for poll_id in polls_to_remove:
-            del self.poll_to_question_map[poll_id]
-        
-        logger.info(f"Cleaned up {len(polls_to_remove)} poll mappings for session {session.session_id}")
-        
-        # Clear active session
-        self.active_session = None
+                    
+                    await asyncio.sleep(0.5)
+                    
+                    # Send group-specific leaderboard
+                    group_leaderboard = self.generate_group_leaderboard(
+                        session, group_id, group_state.group_title, global_rank_map
+                    )
+                    if group_leaderboard:
+                        await context.bot.send_message(
+                            chat_id=group_id,
+                            text=group_leaderboard,
+                            parse_mode='Markdown'
+                        )
+                    
+                    await asyncio.sleep(0.3)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to send leaderboard to group {group_id}: {e}", exc_info=True)
+                finally:
+                    # ALWAYS release lock, even if leaderboard sending failed
+                    quiz_lock_manager.release_lock(group_id)
+                    logger.info(f"Released quiz lock for group {group_id} after live quiz completion")
+            
+            logger.info(f"Live quiz session {session.session_id} completed with {len(session.participants)} participants")
+            
+            # Clean up poll mappings to avoid memory leaks
+            polls_to_remove = [poll_id for poll_id, (sess_id, _, _) in self.poll_to_question_map.items() 
+                              if sess_id == session.session_id]
+            for poll_id in polls_to_remove:
+                del self.poll_to_question_map[poll_id]
+            
+            logger.info(f"Cleaned up {len(polls_to_remove)} poll mappings for session {session.session_id}")
+            
+        finally:
+            # ALWAYS clear active session, even if there were errors
+            self.active_session = None
+            logger.info(f"Cleared active session {session.session_id}")
     
     def generate_global_leaderboard(self, session: LiveQuizSession, sorted_participants: List[ParticipantStats]) -> str:
         """Generate beautifully formatted global leaderboard with top 50 performers"""
