@@ -82,6 +82,7 @@ class QuizSessionRepository:
         try:
             async with self.pool.pool.acquire() as conn:
                 async with conn.transaction():
+                    # Save main quiz session (asyncpg auto-serializes dicts to JSONB)
                     await conn.execute(
                         """
                         INSERT INTO global_quiz_sessions 
@@ -93,36 +94,28 @@ class QuizSessionRepository:
                             completed_at = CURRENT_TIMESTAMP,
                             expires_at = CURRENT_TIMESTAMP + INTERVAL '1 hour'
                         """,
-                        quiz_id, question_count, time_per_question, len(participants), json.dumps(quiz_data)
+                        quiz_id, question_count, time_per_question, len(participants), quiz_data
                     )
                     
-                    for participant in participants:
-                        await conn.execute(
-                            """
-                            INSERT INTO quiz_participants 
-                            (quiz_id, user_id, user_name, score, correct_answers, wrong_answers, unattempted)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7)
-                            """,
-                            quiz_id,
-                            participant['user_id'],
-                            participant['user_name'],
-                            participant['score'],
-                            participant['correct'],
-                            participant['wrong'],
-                            participant['unattempted']
-                        )
+                    # Delete existing group results for this quiz (for conflict resolution)
+                    await conn.execute("DELETE FROM quiz_group_results WHERE quiz_id = $1", quiz_id)
                     
+                    # Save group results with participant data (asyncpg auto-serializes dicts to JSONB)
                     for group in groups:
+                        group_data = {
+                            'participants': [p for p in participants if p.get('group_id') == group['group_id']]
+                        }
                         await conn.execute(
                             """
                             INSERT INTO quiz_group_results 
-                            (quiz_id, group_id, group_name, participant_count)
-                            VALUES ($1, $2, $3, $4)
+                            (quiz_id, group_id, group_title, participant_count, group_data)
+                            VALUES ($1, $2, $3, $4, $5)
                             """,
                             quiz_id,
                             group['group_id'],
-                            group['group_name'],
-                            group['participant_count']
+                            group['group_title'],
+                            group['participant_count'],
+                            group_data
                         )
             
             logger.info(f"✅ Saved quiz session {quiz_id} to database (expires in 1 hour)")
@@ -150,52 +143,39 @@ class QuizSessionRepository:
                     logger.warning(f"Quiz session {quiz_id} not found or expired")
                     return None
                 
-                participants = await conn.fetch(
-                    """
-                    SELECT user_id, user_name, score, correct_answers, wrong_answers, unattempted
-                    FROM quiz_participants
-                    WHERE quiz_id = $1
-                    ORDER BY score DESC, correct_answers DESC
-                    """,
-                    quiz_id
-                )
-                
+                # Get group results with embedded participant data
                 groups = await conn.fetch(
                     """
-                    SELECT group_id, group_name, participant_count
+                    SELECT group_id, group_title, participant_count, group_data
                     FROM quiz_group_results
                     WHERE quiz_id = $1
                     """,
                     quiz_id
                 )
             
+            # Extract participants and groups (asyncpg auto-deserializes JSONB)
+            all_participants = []
+            groups_list = []
+            for g in groups:
+                group_data = g['group_data']  # Already a dict from asyncpg
+                all_participants.extend(group_data.get('participants', []))
+                groups_list.append({
+                    'group_id': g['group_id'],
+                    'group_title': g['group_title'],
+                    'participant_count': g['participant_count'],
+                    'participants': group_data.get('participants', [])
+                })
+            
             return {
                 'quiz_id': row['quiz_id'],
                 'question_count': row['question_count'],
                 'time_per_question': row['time_per_question'],
                 'total_participants': row['total_participants'],
-                'quiz_data': json.loads(row['quiz_data']),
+                'quiz_data': row['quiz_data'],  # Already a dict from asyncpg
                 'completed_at': row['completed_at'],
                 'expires_at': row['expires_at'],
-                'participants': [
-                    {
-                        'user_id': p['user_id'],
-                        'user_name': p['user_name'],
-                        'score': p['score'],
-                        'correct': p['correct_answers'],
-                        'wrong': p['wrong_answers'],
-                        'unattempted': p['unattempted']
-                    }
-                    for p in participants
-                ],
-                'groups': [
-                    {
-                        'group_id': g['group_id'],
-                        'group_name': g['group_name'],
-                        'participant_count': g['participant_count']
-                    }
-                    for g in groups
-                ]
+                'participants': all_participants,
+                'groups': groups_list
             }
             
         except Exception as e:

@@ -23,6 +23,7 @@ from bot.leaderboard_generator import generate_leaderboard_message, generate_qui
 from bot.good_morning_manager import good_morning_manager
 from bot.quiz_lock_manager import quiz_lock_manager
 from bot.live_quiz_manager import live_quiz_coordinator
+from bot.database import db_pool, QuizSessionRepository
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -2911,9 +2912,38 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Log errors caused by updates."""
     logger.error(f"Update {update} caused error {context.error}")
 
+async def post_init(application: Application) -> None:
+    """Initialize database connection and inject repository into live quiz coordinator."""
+    try:
+        logger.info("Initializing database connection...")
+        await db_pool.initialize()
+        
+        quiz_repo = QuizSessionRepository(db_pool)
+        live_quiz_coordinator.set_repository(quiz_repo)
+        
+        logger.info("✅ Database and repository initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize database: {e}", exc_info=True)
+        raise
+
+async def post_shutdown(application: Application) -> None:
+    """Close database connection on shutdown."""
+    try:
+        logger.info("Closing database connection...")
+        await db_pool.close()
+        logger.info("✅ Database connection closed")
+    except Exception as e:
+        logger.error(f"Error closing database: {e}", exc_info=True)
+
 def main():
     """Start the bot."""
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = (
+        Application.builder()
+        .token(TELEGRAM_BOT_TOKEN)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)
+        .build()
+    )
     
     # User commands
     application.add_handler(CommandHandler("start", start))

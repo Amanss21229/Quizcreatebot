@@ -270,6 +270,53 @@ CREATE TABLE IF NOT EXISTS tracked_members (
 CREATE INDEX IF NOT EXISTS idx_tracked_members_group ON tracked_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_tracked_members_user ON tracked_members(user_id);
 
+-- 14. GLOBAL QUIZ SESSIONS TABLE (1-hour retention)
+-- Stores completed global quiz sessions for force leaderboard commands
+CREATE TABLE IF NOT EXISTS global_quiz_sessions (
+    id SERIAL PRIMARY KEY,
+    quiz_id VARCHAR(20) NOT NULL UNIQUE,
+    question_count INTEGER NOT NULL,
+    time_per_question INTEGER NOT NULL,
+    total_participants INTEGER DEFAULT 0,
+    quiz_data JSONB NOT NULL,
+    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    UNIQUE(quiz_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_global_quiz_sessions_quiz_id ON global_quiz_sessions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_global_quiz_sessions_expires_at ON global_quiz_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_global_quiz_sessions_completed_at ON global_quiz_sessions(completed_at DESC);
+
+-- 15. QUIZ GROUP RESULTS TABLE
+-- Stores group-specific results for each global quiz
+CREATE TABLE IF NOT EXISTS quiz_group_results (
+    id SERIAL PRIMARY KEY,
+    quiz_id VARCHAR(20) NOT NULL,
+    group_id BIGINT NOT NULL,
+    group_title VARCHAR(255),
+    participant_count INTEGER DEFAULT 0,
+    group_data JSONB NOT NULL,
+    UNIQUE(quiz_id, group_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_quiz_group_results_quiz_id ON quiz_group_results(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_group_results_group_id ON quiz_group_results(group_id);
+
+-- 16. QUIZ ID COUNTER TABLE
+-- Maintains the global quiz ID counter
+CREATE TABLE IF NOT EXISTS quiz_id_counter (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    counter INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (id = 1)
+);
+
+-- Initialize quiz_id_counter with default row if not exists
+INSERT INTO quiz_id_counter (id, counter, updated_at)
+VALUES (1, 0, CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO NOTHING;
+
 -- ============================================
 -- HELPER FUNCTIONS & TRIGGERS
 -- ============================================

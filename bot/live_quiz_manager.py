@@ -169,6 +169,14 @@ class LiveQuizCoordinator:
         
         # Storage for completed quiz sessions
         self.completed_quizzes: Dict[str, LiveQuizSession] = {}  # global_quiz_id -> session
+        
+        # Database repository for persistent storage
+        self.quiz_repository = None
+    
+    def set_repository(self, repository):
+        """Set the QuizSessionRepository for database persistence."""
+        self.quiz_repository = repository
+        logger.info("✅ QuizSessionRepository injected into LiveQuizCoordinator")
         self.quiz_id_counter = self._load_quiz_counter()
         self._load_completed_quizzes()
     
@@ -208,8 +216,88 @@ class LiveQuizCoordinator:
         except Exception as e:
             logger.error(f"Failed to load completed quizzes: {e}")
     
-    def _save_completed_quiz(self, session: LiveQuizSession):
-        """Save a completed quiz to storage (keep last 100)"""
+    async def _save_completed_quiz(self, session: LiveQuizSession):
+        """Save a completed quiz to database with 1-hour retention"""
+        try:
+            if not self.quiz_repository:
+                logger.warning("Quiz repository not available, falling back to JSON storage")
+                self._save_completed_quiz_to_json(session)
+                return
+            
+            # Store in memory for immediate access
+            self.completed_quizzes[session.global_quiz_id] = session
+            
+            # Prepare quiz data
+            quiz_data = {
+                'quiz_id': session.global_quiz_id,
+                'session_id': session.session_id,
+                'chapter': session.chapter,
+                'start_time': session.start_time.isoformat() if session.start_time else None,
+                'end_time': session.end_time.isoformat() if session.end_time else None,
+                'question_count': session.get_question_count(),
+                'questions_english': session.questions_english,
+                'questions_hindi': session.questions_hindi
+            }
+            
+            # Prepare participant data
+            participants = []
+            for user_id, stats in session.participants.items():
+                participants.append({
+                    'user_id': stats.user_id,
+                    'username': stats.username,
+                    'first_name': stats.first_name,
+                    'group_id': stats.registered_group_id,
+                    'score': stats.score,
+                    'correct': stats.correct,
+                    'wrong': stats.wrong,
+                    'unattempted': stats.unattempted,
+                    'total_time': stats.total_time
+                })
+            
+            # Prepare group data
+            groups = []
+            for group_id, group_state in session.group_states.items():
+                group_participants = [p for p in session.participants.values() 
+                                    if p.registered_group_id == group_id]
+                groups.append({
+                    'group_id': group_id,
+                    'group_title': group_state.group_title,
+                    'participant_count': len(group_participants)
+                })
+            
+            # Save to database
+            success = await self.quiz_repository.save_quiz_session(
+                quiz_id=session.global_quiz_id,
+                question_count=session.get_question_count(),
+                time_per_question=self.question_duration,
+                quiz_data=quiz_data,
+                participants=participants,
+                groups=groups
+            )
+            
+            if success:
+                logger.info(f"✅ Saved quiz {session.global_quiz_id} to database (expires in 1 hour)")
+            else:
+                logger.warning(f"⚠️ Failed to save quiz {session.global_quiz_id} to database, using JSON fallback")
+                self._save_completed_quiz_to_json(session)
+            
+            # Keep only last 50 in memory (remove oldest)
+            if len(self.completed_quizzes) > 50:
+                # Sort by insertion order (oldest first) and remove the oldest ones
+                all_keys = list(self.completed_quizzes.keys())
+                oldest_keys = all_keys[:len(all_keys) - 50]
+                for key in oldest_keys:
+                    self.completed_quizzes.pop(key, None)
+            
+            logger.info(f"Quiz {session.global_quiz_id} stored in memory")
+        
+        except Exception as e:
+            logger.error(f"Error saving completed quiz: {e}", exc_info=True)
+            # Fallback to JSON on any error
+            self._save_completed_quiz_to_json(session)
+    
+    def _save_completed_quiz_to_json(self, session: LiveQuizSession):
+        """Fallback method to save quiz to JSON file"""
         try:
             os.makedirs('data', exist_ok=True)
             
@@ -238,18 +326,9 @@ class LiveQuizCoordinator:
             
             self.completed_quizzes[session.global_quiz_id] = session
             
-            # Keep only last 50 in memory (remove oldest)
-            if len(self.completed_quizzes) > 50:
-                # Sort by insertion order (oldest first) and remove the oldest ones
-                all_keys = list(self.completed_quizzes.keys())
-                oldest_keys = all_keys[:len(all_keys) - 50]
-                for key in oldest_keys:
-                    del self.completed_quizzes[key]
-                logger.info(f"Trimmed {len(oldest_keys)} oldest quizzes from memory, keeping 50 most recent")
-            
-            logger.info(f"Saved completed quiz {session.global_quiz_id} to storage")
+            logger.info(f"Saved quiz {session.global_quiz_id} to JSON file")
         except Exception as e:
-            logger.error(f"Failed to save completed quiz: {e}")
+            logger.error(f"Error saving to JSON: {e}", exc_info=True)
     
     def has_active_session(self) -> bool:
         """Check if there's an active live quiz session"""
@@ -501,7 +580,7 @@ Good luck! 🍀
                 session.mark_unattempted(user_id, session.get_question_count())
             
             # Save completed quiz to storage
-            self._save_completed_quiz(session)
+            await self._save_completed_quiz(session)
             
             # Get sorted participants with global ranks
             sorted_participants = session.get_sorted_participants()
@@ -839,9 +918,71 @@ to get detailed AI-powered explanation!
         logger.info(f"Live quiz ended early after {questions_answered} questions")
         return True, f"Live quiz ended successfully. Leaderboard sent for {questions_answered} questions."
     
-    def get_quiz_by_id(self, global_quiz_id: str) -> Optional[LiveQuizSession]:
-        """Get a completed quiz by its global quiz ID"""
-        return self.completed_quizzes.get(global_quiz_id)
+    async def get_quiz_by_id(self, global_quiz_id: str) -> Optional[LiveQuizSession]:
+        """Get a completed quiz by its global quiz ID (checks memory first, then database)"""
+        # Check in-memory cache first
+        if global_quiz_id in self.completed_quizzes:
+            return self.completed_quizzes[global_quiz_id]
+        
+        # If not in memory and repository is available, fetch from database
+        if self.quiz_repository:
+            try:
+                quiz_data_dict = await self.quiz_repository.get_quiz_session(global_quiz_id)
+                if quiz_data_dict:
+                    logger.info(f"Retrieved quiz {global_quiz_id} from database")
+                    # Reconstruct LiveQuizSession from database data
+                    session = self._reconstruct_session_from_db(quiz_data_dict)
+                    # Store in memory for future access
+                    self.completed_quizzes[global_quiz_id] = session
+                    return session
+            except Exception as e:
+                logger.error(f"Error fetching quiz from database: {e}", exc_info=True)
+        
+        return None
+    
+    def _reconstruct_session_from_db(self, quiz_data: dict) -> LiveQuizSession:
+        """Reconstruct a LiveQuizSession object from database data"""
+        from datetime import datetime
+        
+        data = quiz_data['quiz_data']
+        session = LiveQuizSession(
+            session_id=data['session_id'],
+            chapter=data['chapter'],
+            questions_english=data['questions_english'],
+            questions_hindi=data['questions_hindi'],
+            admin_id=0,  # Not stored in DB
+            global_quiz_id=data['quiz_id']
+        )
+        
+        session.is_completed = True
+        session.is_running = False
+        session.start_time = datetime.fromisoformat(data['start_time']) if data.get('start_time') else None
+        session.end_time = datetime.fromisoformat(data['end_time']) if data.get('end_time') else None
+        
+        # Reconstruct participants
+        for p_data in quiz_data.get('participants', []):
+            stats = ParticipantStats(
+                user_id=p_data['user_id'],
+                username=p_data.get('username'),
+                first_name=p_data['first_name'],
+                group_id=p_data['group_id'],
+                group_title=p_data.get('group_title', ''),
+                registered_group_id=p_data['group_id'],
+                correct=p_data['correct'],
+                wrong=p_data['wrong'],
+                unattempted=p_data['unattempted'],
+                total_time=p_data.get('total_time', 0.0)
+            )
+            session.participants[p_data['user_id']] = stats
+        
+        # Reconstruct group states
+        for g_data in quiz_data.get('groups', []):
+            session.group_states[g_data['group_id']] = GroupQuizState(
+                group_id=g_data['group_id'],
+                group_title=g_data['group_title']
+            )
+        
+        return session
     
     async def force_send_global_leaderboard(self, context: ContextTypes.DEFAULT_TYPE, 
                                            global_quiz_id: str, force_join_manager) -> tuple[bool, str]:
@@ -854,9 +995,9 @@ to get detailed AI-powered explanation!
         if not re.match(r'^GQ\d{4}$', global_quiz_id):
             return False, f"❌ Invalid quiz ID format. Expected format: GQ0001"
         
-        session = self.get_quiz_by_id(global_quiz_id)
+        session = await self.get_quiz_by_id(global_quiz_id)
         if not session:
-            return False, f"❌ Quiz {global_quiz_id} not found. Note: Force-send only works for quizzes completed in the current bot session."
+            return False, f"❌ Quiz {global_quiz_id} not found or expired (quizzes are stored for 1 hour after completion)."
         
         if not session.is_completed:
             return False, f"❌ Quiz {global_quiz_id} is not completed yet."
@@ -899,9 +1040,9 @@ to get detailed AI-powered explanation!
         if not re.match(r'^GQ\d{4}$', global_quiz_id):
             return False, f"❌ Invalid quiz ID format. Expected format: GQ0001"
         
-        session = self.get_quiz_by_id(global_quiz_id)
+        session = await self.get_quiz_by_id(global_quiz_id)
         if not session:
-            return False, f"❌ Quiz {global_quiz_id} not found. Note: Force-send only works for quizzes completed in the current bot session."
+            return False, f"❌ Quiz {global_quiz_id} not found or expired (quizzes are stored for 1 hour after completion)."
         
         if not session.is_completed:
             return False, f"❌ Quiz {global_quiz_id} is not completed yet."
