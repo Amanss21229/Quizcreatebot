@@ -2,12 +2,12 @@ modules = ["python-3.11"]
 
 [agent]
 stack = "AGENT_STACK"
-integrations = ["agentstack-trigger-telegram:1.0.0"]
+integrations = ["agentstack-trigger-telegram:1.0.0", "python_database:1.0.0"]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["gut", "jq"]
+packages = ["gut", "jq", "postgresql"]
 
 [env]
 MASTRA_HIDE_CLOUD_CTA = "true"

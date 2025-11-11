@@ -1,233 +1,366 @@
 import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from psycopg2 import pool
+import asyncpg
 import logging
-from typing import Optional, List, Dict, Any
-from contextlib import contextmanager
+from typing import Optional, Dict, List, Any
+from datetime import datetime, timedelta
+import json
 
 logger = logging.getLogger(__name__)
 
-class Database:
-    """PostgreSQL database connection manager for NEET Quiz Bot."""
+class DatabasePool:
+    """Manages PostgreSQL connection pool using asyncpg."""
     
     def __init__(self):
-        self.connection_pool = None
-        self._initialize_pool()
+        self.pool: Optional[asyncpg.Pool] = None
     
-    def _initialize_pool(self):
+    async def initialize(self):
         """Initialize the connection pool."""
         try:
-            database_url = os.getenv('DATABASE_URL')
+            database_url = os.environ.get("DATABASE_URL")
             if not database_url:
-                raise ValueError("DATABASE_URL environment variable is required")
+                raise ValueError("DATABASE_URL environment variable not set")
             
-            self.connection_pool = psycopg2.pool.SimpleConnectionPool(
-                minconn=1,
-                maxconn=10,
-                dsn=database_url
+            self.pool = await asyncpg.create_pool(
+                database_url,
+                min_size=2,
+                max_size=10,
+                command_timeout=60,
+                max_queries=50000,
+                max_inactive_connection_lifetime=300
             )
-            logger.info("Database connection pool initialized successfully")
+            
+            logger.info("✅ Database connection pool initialized successfully")
+            
         except Exception as e:
-            logger.error(f"Failed to initialize database connection pool: {e}", exc_info=True)
+            logger.error(f"❌ Failed to initialize database pool: {e}", exc_info=True)
             raise
     
-    @contextmanager
-    def get_connection(self):
-        """Context manager for database connections."""
-        conn = None
-        try:
-            conn = self.connection_pool.getconn()
-            yield conn
-            conn.commit()
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            logger.error(f"Database error: {e}", exc_info=True)
-            raise
-        finally:
-            if conn:
-                self.connection_pool.putconn(conn)
-    
-    def execute_query(self, query: str, params: tuple = None, fetch_one=False, fetch_all=False):
-        """Execute a SQL query and optionally fetch results."""
-        with self.get_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(query, params)
-                if fetch_one:
-                    result = cursor.fetchone()
-                    return dict(result) if result else None
-                elif fetch_all:
-                    return [dict(row) for row in cursor.fetchall()]
-                return cursor.rowcount
-    
-    # Language Settings
-    def get_language(self, chat_id: int) -> str:
-        """Get language preference for a chat."""
-        query = "SELECT language FROM language_settings WHERE chat_id = %s"
-        result = self.execute_query(query, (chat_id,), fetch_one=True)
-        return result['language'] if result else 'english'
-    
-    def set_language(self, chat_id: int, language: str):
-        """Set language preference for a chat."""
-        query = """
-            INSERT INTO language_settings (chat_id, language, updated_at)
-            VALUES (%s, %s, NOW())
-            ON CONFLICT (chat_id) 
-            DO UPDATE SET language = EXCLUDED.language, updated_at = NOW()
-        """
-        self.execute_query(query, (chat_id, language))
-    
-    # Welcome Groups
-    def is_welcome_enabled(self, group_id: int) -> bool:
-        """Check if welcome messages are enabled for a group."""
-        query = "SELECT enabled FROM welcome_groups WHERE group_id = %s"
-        result = self.execute_query(query, (group_id,), fetch_one=True)
-        return result['enabled'] if result else False
-    
-    def enable_welcome(self, group_id: int, message: str = None) -> bool:
-        """Enable welcome messages for a group."""
-        query = """
-            INSERT INTO welcome_groups (group_id, welcome_message, enabled, updated_at)
-            VALUES (%s, %s, TRUE, NOW())
-            ON CONFLICT (group_id)
-            DO UPDATE SET enabled = TRUE, updated_at = NOW()
-            RETURNING enabled
-        """
-        result = self.execute_query(query, (group_id, message), fetch_one=True)
-        return result is not None
-    
-    def disable_welcome(self, group_id: int) -> bool:
-        """Disable welcome messages for a group."""
-        query = """
-            UPDATE welcome_groups 
-            SET enabled = FALSE, updated_at = NOW()
-            WHERE group_id = %s
-            RETURNING enabled
-        """
-        result = self.execute_query(query, (group_id,), fetch_one=True)
-        return result is not None
-    
-    # Tagall Permissions
-    def get_tagall_permission(self, group_id: int) -> str:
-        """Get tagall permission level for a group."""
-        query = "SELECT permission_level FROM tagall_permissions WHERE group_id = %s"
-        result = self.execute_query(query, (group_id,), fetch_one=True)
-        return result['permission_level'] if result else 'admin'
-    
-    def set_tagall_permission(self, group_id: int, permission_level: str):
-        """Set tagall permission level for a group."""
-        query = """
-            INSERT INTO tagall_permissions (group_id, permission_level, updated_at)
-            VALUES (%s, %s, NOW())
-            ON CONFLICT (group_id)
-            DO UPDATE SET permission_level = EXCLUDED.permission_level, updated_at = NOW()
-        """
-        self.execute_query(query, (group_id, permission_level))
-    
-    # Tracked Members
-    def track_member(self, group_id: int, user_id: int, first_name: str, username: str = None, is_admin: bool = False):
-        """Track or update a member in a group."""
-        query = """
-            INSERT INTO tracked_members (group_id, user_id, first_name, username, is_admin, last_seen)
-            VALUES (%s, %s, %s, %s, %s, NOW())
-            ON CONFLICT (group_id, user_id)
-            DO UPDATE SET 
-                first_name = EXCLUDED.first_name,
-                username = EXCLUDED.username,
-                is_admin = EXCLUDED.is_admin,
-                last_seen = NOW()
-        """
-        self.execute_query(query, (group_id, user_id, first_name, username, is_admin))
-    
-    def get_group_members(self, group_id: int) -> List[Dict]:
-        """Get all tracked members for a group."""
-        query = "SELECT * FROM tracked_members WHERE group_id = %s ORDER BY last_seen DESC"
-        return self.execute_query(query, (group_id,), fetch_all=True)
-    
-    # Bot Statistics
-    def get_bot_stats(self) -> Dict:
-        """Get bot statistics."""
-        query = "SELECT * FROM bot_stats LIMIT 1"
-        result = self.execute_query(query, fetch_one=True)
-        return result if result else {}
-    
-    def increment_stat(self, stat_name: str, increment: int = 1):
-        """Increment a bot statistic."""
-        query = f"""
-            UPDATE bot_stats 
-            SET {stat_name} = {stat_name} + %s, last_updated = NOW()
-            WHERE id = 1
-        """
-        self.execute_query(query, (increment,))
-    
-    def add_user(self, user_id: int, first_name: str = None, username: str = None):
-        """Add or update a user."""
-        # First check if user exists
-        check_query = "SELECT user_id FROM bot_users WHERE user_id = %s"
-        exists = self.execute_query(check_query, (user_id,), fetch_one=True)
-        
-        if not exists:
-            # New user
-            query = """
-                INSERT INTO bot_users (user_id, first_name, username, first_seen, last_seen)
-                VALUES (%s, %s, %s, NOW(), NOW())
-                ON CONFLICT (user_id) DO NOTHING
-            """
-            rows_affected = self.execute_query(query, (user_id, first_name, username))
-            if rows_affected > 0:
-                self.increment_stat('total_users')
-        else:
-            # Update existing user
-            query = """
-                UPDATE bot_users
-                SET first_name = %s, username = %s, last_seen = NOW()
-                WHERE user_id = %s
-            """
-            self.execute_query(query, (first_name, username, user_id))
-    
-    def add_group(self, group_id: int, group_name: str = None):
-        """Add or update a group."""
-        # First check if group exists
-        check_query = "SELECT group_id FROM bot_groups WHERE group_id = %s"
-        exists = self.execute_query(check_query, (group_id,), fetch_one=True)
-        
-        if not exists:
-            # New group
-            query = """
-                INSERT INTO bot_groups (group_id, group_name, first_added, last_active)
-                VALUES (%s, %s, NOW(), NOW())
-                ON CONFLICT (group_id) DO NOTHING
-            """
-            rows_affected = self.execute_query(query, (group_id, group_name))
-            if rows_affected > 0:
-                self.increment_stat('total_groups')
-        else:
-            # Update existing group
-            query = """
-                UPDATE bot_groups
-                SET group_name = %s, last_active = NOW()
-                WHERE group_id = %s
-            """
-            self.execute_query(query, (group_name, group_id))
-    
-    def get_all_groups(self) -> List[int]:
-        """Get all active group IDs."""
-        query = "SELECT group_id FROM bot_groups WHERE is_active = TRUE"
-        results = self.execute_query(query, fetch_all=True)
-        return [row['group_id'] for row in results]
-    
-    def record_quiz(self, questions_count: int):
-        """Record a quiz generation."""
-        self.increment_stat('total_quizzes_generated')
-        self.increment_stat('total_questions_sent', questions_count)
-    
-    def close(self):
-        """Close all database connections."""
-        if self.connection_pool:
-            self.connection_pool.closeall()
+    async def close(self):
+        """Close the connection pool."""
+        if self.pool:
+            await self.pool.close()
             logger.info("Database connection pool closed")
 
+db_pool = DatabasePool()
 
-# Global database instance
-db = Database()
+class QuizSessionRepository:
+    """Repository for managing global quiz sessions in database with 1-hour retention."""
+    
+    def __init__(self, pool: DatabasePool):
+        self.pool = pool
+    
+    async def get_next_quiz_id(self) -> str:
+        """Get and increment the quiz ID counter."""
+        try:
+            query = """
+                UPDATE quiz_id_counter 
+                SET counter = counter + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+                RETURNING counter
+            """
+            async with self.pool.pool.acquire() as conn:
+                counter = await conn.fetchval(query)
+            
+            quiz_id = f"GQ{counter:04d}"
+            logger.info(f"Generated new quiz ID: {quiz_id}")
+            return quiz_id
+            
+        except Exception as e:
+            logger.error(f"Error generating quiz ID: {e}", exc_info=True)
+            raise
+    
+    async def save_quiz_session(
+        self,
+        quiz_id: str,
+        question_count: int,
+        time_per_question: int,
+        quiz_data: Dict[str, Any],
+        participants: List[Dict[str, Any]],
+        groups: List[Dict[str, Any]]
+    ) -> bool:
+        """Save a completed quiz session to database with 1-hour expiry."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute(
+                        """
+                        INSERT INTO global_quiz_sessions 
+                        (quiz_id, question_count, time_per_question, total_participants, quiz_data, completed_at, expires_at)
+                        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 hour')
+                        ON CONFLICT (quiz_id) DO UPDATE SET
+                            total_participants = EXCLUDED.total_participants,
+                            quiz_data = EXCLUDED.quiz_data,
+                            completed_at = CURRENT_TIMESTAMP,
+                            expires_at = CURRENT_TIMESTAMP + INTERVAL '1 hour'
+                        """,
+                        quiz_id, question_count, time_per_question, len(participants), json.dumps(quiz_data)
+                    )
+                    
+                    for participant in participants:
+                        await conn.execute(
+                            """
+                            INSERT INTO quiz_participants 
+                            (quiz_id, user_id, user_name, score, correct_answers, wrong_answers, unattempted)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                            """,
+                            quiz_id,
+                            participant['user_id'],
+                            participant['user_name'],
+                            participant['score'],
+                            participant['correct'],
+                            participant['wrong'],
+                            participant['unattempted']
+                        )
+                    
+                    for group in groups:
+                        await conn.execute(
+                            """
+                            INSERT INTO quiz_group_results 
+                            (quiz_id, group_id, group_name, participant_count)
+                            VALUES ($1, $2, $3, $4)
+                            """,
+                            quiz_id,
+                            group['group_id'],
+                            group['group_name'],
+                            group['participant_count']
+                        )
+            
+            logger.info(f"✅ Saved quiz session {quiz_id} to database (expires in 1 hour)")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error saving quiz session {quiz_id}: {e}", exc_info=True)
+            return False
+    
+    async def get_quiz_session(self, quiz_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a quiz session by ID if it hasn't expired (within 1 hour)."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    SELECT quiz_id, question_count, time_per_question, total_participants, 
+                           quiz_data, completed_at, expires_at
+                    FROM global_quiz_sessions
+                    WHERE quiz_id = $1 AND expires_at > CURRENT_TIMESTAMP
+                    """,
+                    quiz_id
+                )
+                
+                if not row:
+                    logger.warning(f"Quiz session {quiz_id} not found or expired")
+                    return None
+                
+                participants = await conn.fetch(
+                    """
+                    SELECT user_id, user_name, score, correct_answers, wrong_answers, unattempted
+                    FROM quiz_participants
+                    WHERE quiz_id = $1
+                    ORDER BY score DESC, correct_answers DESC
+                    """,
+                    quiz_id
+                )
+                
+                groups = await conn.fetch(
+                    """
+                    SELECT group_id, group_name, participant_count
+                    FROM quiz_group_results
+                    WHERE quiz_id = $1
+                    """,
+                    quiz_id
+                )
+            
+            return {
+                'quiz_id': row['quiz_id'],
+                'question_count': row['question_count'],
+                'time_per_question': row['time_per_question'],
+                'total_participants': row['total_participants'],
+                'quiz_data': json.loads(row['quiz_data']),
+                'completed_at': row['completed_at'],
+                'expires_at': row['expires_at'],
+                'participants': [
+                    {
+                        'user_id': p['user_id'],
+                        'user_name': p['user_name'],
+                        'score': p['score'],
+                        'correct': p['correct_answers'],
+                        'wrong': p['wrong_answers'],
+                        'unattempted': p['unattempted']
+                    }
+                    for p in participants
+                ],
+                'groups': [
+                    {
+                        'group_id': g['group_id'],
+                        'group_name': g['group_name'],
+                        'participant_count': g['participant_count']
+                    }
+                    for g in groups
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"Error retrieving quiz session {quiz_id}: {e}", exc_info=True)
+            return None
+    
+    async def cleanup_expired_sessions(self) -> int:
+        """Delete quiz sessions older than 1 hour."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                result = await conn.execute(
+                    "DELETE FROM global_quiz_sessions WHERE expires_at < CURRENT_TIMESTAMP"
+                )
+            
+            deleted_count = int(result.split()[-1]) if result else 0
+            
+            if deleted_count > 0:
+                logger.info(f"🗑️ Cleaned up {deleted_count} expired quiz sessions")
+            
+            return deleted_count
+            
+        except Exception as e:
+            logger.error(f"Error cleaning up expired sessions: {e}", exc_info=True)
+            return 0
+    
+    async def list_active_sessions(self) -> List[str]:
+        """List all active (non-expired) quiz IDs."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT quiz_id, completed_at
+                    FROM global_quiz_sessions
+                    WHERE expires_at > CURRENT_TIMESTAMP
+                    ORDER BY completed_at DESC
+                    """
+                )
+            
+            return [row['quiz_id'] for row in rows]
+            
+        except Exception as e:
+            logger.error(f"Error listing active sessions: {e}", exc_info=True)
+            return []
+
+class StatsRepository:
+    """Repository for managing bot statistics."""
+    
+    def __init__(self, pool: DatabasePool):
+        self.pool = pool
+    
+    async def increment_stat(self, stat_name: str, increment: int = 1):
+        """Increment a bot statistic."""
+        try:
+            query = f"""
+                UPDATE bot_stats 
+                SET {stat_name} = {stat_name} + $1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = 1
+            """
+            async with self.pool.pool.acquire() as conn:
+                await conn.execute(query, increment)
+        except Exception as e:
+            logger.error(f"Error incrementing stat {stat_name}: {e}", exc_info=True)
+    
+    async def get_stats(self) -> Dict[str, Any]:
+        """Get global bot statistics."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                row = await conn.fetchrow("SELECT * FROM bot_stats WHERE id = 1")
+            
+            if row:
+                return dict(row)
+            return {}
+        except Exception as e:
+            logger.error(f"Error getting stats: {e}", exc_info=True)
+            return {}
+    
+    async def track_user(self, user_id: int, username: str = None):
+        """Track user activity."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                result = await conn.fetchrow(
+                    "SELECT user_id FROM user_stats WHERE user_id = $1",
+                    user_id
+                )
+                
+                if not result:
+                    await conn.execute(
+                        """
+                        INSERT INTO user_stats (user_id, username, quiz_count)
+                        VALUES ($1, $2, 0)
+                        """,
+                        user_id, username
+                    )
+                    await self.increment_stat('total_users')
+                else:
+                    await conn.execute(
+                        """
+                        UPDATE user_stats
+                        SET username = $2, last_seen = CURRENT_TIMESTAMP
+                        WHERE user_id = $1
+                        """,
+                        user_id, username
+                    )
+        except Exception as e:
+            logger.error(f"Error tracking user {user_id}: {e}", exc_info=True)
+    
+    async def track_group(self, group_id: int, group_name: str = None):
+        """Track group activity."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                result = await conn.fetchrow(
+                    "SELECT group_id FROM group_stats WHERE group_id = $1",
+                    group_id
+                )
+                
+                if not result:
+                    await conn.execute(
+                        """
+                        INSERT INTO group_stats (group_id, group_name, quiz_count)
+                        VALUES ($1, $2, 0)
+                        """,
+                        group_id, group_name
+                    )
+                    await self.increment_stat('total_groups')
+                else:
+                    await conn.execute(
+                        """
+                        UPDATE group_stats
+                        SET group_name = $2, last_seen = CURRENT_TIMESTAMP
+                        WHERE group_id = $1
+                        """,
+                        group_id, group_name
+                    )
+        except Exception as e:
+            logger.error(f"Error tracking group {group_id}: {e}", exc_info=True)
+    
+    async def increment_user_quiz_count(self, user_id: int):
+        """Increment quiz count for a user."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE user_stats
+                    SET quiz_count = quiz_count + 1
+                    WHERE user_id = $1
+                    """,
+                    user_id
+                )
+        except Exception as e:
+            logger.error(f"Error incrementing user quiz count: {e}", exc_info=True)
+    
+    async def increment_group_quiz_count(self, group_id: int):
+        """Increment quiz count for a group."""
+        try:
+            async with self.pool.pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE group_stats
+                    SET quiz_count = quiz_count + 1
+                    WHERE group_id = $1
+                    """,
+                    group_id
+                )
+        except Exception as e:
+            logger.error(f"Error incrementing group quiz count: {e}", exc_info=True)
+
+quiz_session_repo = QuizSessionRepository(db_pool)
+stats_repo = StatsRepository(db_pool)
