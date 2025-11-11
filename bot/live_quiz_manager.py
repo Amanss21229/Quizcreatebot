@@ -605,17 +605,19 @@ Good luck! 🍀
                     
                     await asyncio.sleep(0.5)
                     
-                    # Send group-specific leaderboard
-                    group_leaderboard = self.generate_group_leaderboard(
+                    # Send group-specific leaderboard (may be multiple messages)
+                    group_leaderboard_messages = self.generate_group_leaderboard(
                         session, group_id, group_state.group_title, global_rank_map
                     )
-                    if group_leaderboard:
-                        await context.bot.send_message(
-                            chat_id=group_id,
-                            text=group_leaderboard,
-                            parse_mode='Markdown'
-                        )
-                        logger.info(f"Sent group leaderboard for {session.global_quiz_id} to group {group_id}")
+                    if group_leaderboard_messages:
+                        for message in group_leaderboard_messages:
+                            await context.bot.send_message(
+                                chat_id=group_id,
+                                text=message,
+                                parse_mode='Markdown'
+                            )
+                            await asyncio.sleep(0.3)
+                        logger.info(f"Sent group leaderboard ({len(group_leaderboard_messages)} message(s)) for {session.global_quiz_id} to group {group_id}")
                     
                     await asyncio.sleep(0.3)
                     
@@ -732,8 +734,9 @@ to get detailed AI-powered explanation!
         return leaderboard
     
     def generate_group_leaderboard(self, session: LiveQuizSession, group_id: int, 
-                                   group_title: str, global_rank_map: dict) -> str:
-        """Generate beautifully formatted group-specific leaderboard with global ranks"""
+                                   group_title: str, global_rank_map: dict) -> List[str]:
+        """Generate beautifully formatted group-specific leaderboard with global ranks
+        Returns a list of message strings to handle Telegram's 4096 character limit"""
         # Filter participants from this group
         group_participants = [
             p for p in session.participants.values() 
@@ -741,14 +744,14 @@ to get detailed AI-powered explanation!
         ]
         
         if not group_participants:
-            return None
+            return []
         
         # Sort by score (descending), then by time (ascending)
         group_participants.sort(key=lambda p: (-p.score, p.total_time))
         
         # Header with group name
         group_name_display = group_title[:30] if len(group_title) <= 30 else group_title[:27] + "..."
-        leaderboard = f"""
+        header = f"""
 ╔═══════════════════════════════════════╗
 ║       🏛️ YOUR GROUP LEADERBOARD       ║
 ╚═══════════════════════════════════════╝
@@ -762,6 +765,9 @@ to get detailed AI-powered explanation!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 """
+        
+        messages = []
+        current_message = header
         
         # Categorize participants by performance
         top_performers = []
@@ -780,7 +786,9 @@ to get detailed AI-powered explanation!
             else:
                 need_improvement.append(participant)
         
-        # Display all participants with detailed stats
+        # Display all participants with detailed stats in decorated boxes
+        MAX_MESSAGE_LENGTH = 3500  # Leave buffer for safety
+        
         for group_rank, participant in enumerate(group_participants, 1):
             global_rank = global_rank_map.get(participant.user_id, "N/A")
             
@@ -796,10 +804,10 @@ to get detailed AI-powered explanation!
             else:
                 rank_emoji = "📍"
             
-            # User display
-            username_display = f"@{participant.username}" if participant.username else participant.first_name
-            if len(username_display) > 18:
-                username_display = username_display[:15] + "..."
+            # User display - prioritize first_name over username
+            username_display = participant.first_name
+            if len(username_display) > 20:
+                username_display = username_display[:17] + "..."
             
             # Make name clickable (escape markdown chars)
             escaped_name = escape_markdown(username_display)
@@ -824,19 +832,26 @@ to get detailed AI-powered explanation!
             total_attempted = participant.total_attempts
             time_taken = participant.total_time
             
-            leaderboard += f"""
-{rank_emoji} **{clickable_name}** {perf_emoji}
-├─ 🌍 Global Rank: #{global_rank} | 🏛️ Group Rank: #{group_rank}
-├─ 💯 **Score:** {total_score:+d} points
-├─ ✅ Correct: {correct} (+{correct*4}) | ❌ Wrong: {wrong} ({wrong*-1})
-├─ ⏭️ Skipped: {unattempted} | 📝 Attempted: {total_attempted}/{len(session.questions)}
-├─ ⏱️ Time Taken: {time_taken:.1f}s | 🎯 Accuracy: {accuracy:.1f}%
-└─ {'─' * 35}
+            # Create compact decorated box for each user
+            participant_entry = f"""╭{'─' * 38}╮
+│ {rank_emoji} **{clickable_name}** {perf_emoji}
+├─ 🏆 Ranks: 🌍 Global **#{global_rank}** │ 🏛️ Group **#{group_rank}**
+├─ 💯 Score: **{total_score:+d}** │ ✅ {correct} │ ❌ {wrong} │ ⏭️ {unattempted}
+├─ 📊 Accuracy: {accuracy:.1f}% │ ⏱️ {time_taken:.1f}s
+╰{'─' * 38}╯
 
 """
+            
+            # Check if adding this participant would exceed limit
+            if len(current_message) + len(participant_entry) > MAX_MESSAGE_LENGTH:
+                # Save current message and start a new one
+                messages.append(current_message)
+                current_message = f"**📋 Group Leaderboard (continued...)**\n\n" + participant_entry
+            else:
+                current_message += participant_entry
         
         # Footer with motivational message
-        leaderboard += f"""━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        footer = f"""━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📊 **GROUP PERFORMANCE SUMMARY**
 
@@ -860,7 +875,15 @@ to get detailed AI-powered explanation!
 【~@DrQuizRobot】
 """
         
-        return leaderboard
+        # Add footer to last message or create new message if it doesn't fit
+        if len(current_message) + len(footer) > MAX_MESSAGE_LENGTH:
+            messages.append(current_message)
+            messages.append(footer)
+        else:
+            current_message += footer
+            messages.append(current_message)
+        
+        return messages
     
     async def end_live_quiz_early(self, context: ContextTypes.DEFAULT_TYPE, quiz_lock_manager):
         """End the live quiz early and send leaderboard for questions answered so far"""
@@ -1067,17 +1090,19 @@ to get detailed AI-powered explanation!
                 # Get group title from session group_states or use a default
                 group_title = session.group_states.get(group_id, type('obj', (object,), {'group_title': 'Group'})).group_title
                 
-                # Generate group-specific leaderboard
-                group_leaderboard = self.generate_group_leaderboard(
+                # Generate group-specific leaderboard (may be multiple messages)
+                group_leaderboard_messages = self.generate_group_leaderboard(
                     session, group_id, group_title, global_rank_map
                 )
                 
-                if group_leaderboard:
-                    await context.bot.send_message(
-                        chat_id=group_id,
-                        text=group_leaderboard,
-                        parse_mode='Markdown'
-                    )
+                if group_leaderboard_messages:
+                    for message in group_leaderboard_messages:
+                        await context.bot.send_message(
+                            chat_id=group_id,
+                            text=message,
+                            parse_mode='Markdown'
+                        )
+                        await asyncio.sleep(0.3)
                     sent_count += 1
                 else:
                     no_participants_count += 1
