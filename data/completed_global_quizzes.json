@@ -1,0 +1,15 @@
+[
+  {
+    "quiz_id": "GQ0001",
+    "session_id": "live_1762880358",
+    "chapter": "cell",
+    "start_time": "2025-11-11T17:00:22.420786",
+    "end_time": "2025-11-11T17:03:13.718606",
+    "question_count": 10,
+    "participant_count": 1,
+    "group_ids": [
+      -1002796976762,
+      -1003049872361
+    ]
+  }
+]
