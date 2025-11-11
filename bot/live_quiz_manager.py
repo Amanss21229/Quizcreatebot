@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import json
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 from dataclasses import dataclass, field
@@ -60,8 +62,9 @@ class LiveQuizSession:
     """Represents a global live quiz session"""
     
     def __init__(self, session_id: str, chapter: str, questions_english: List[dict], 
-                 questions_hindi: List[dict], admin_id: int):
+                 questions_hindi: List[dict], admin_id: int, global_quiz_id: str = None):
         self.session_id = session_id
+        self.global_quiz_id = global_quiz_id  # Human-readable ID like GQ1234
         self.chapter = chapter
         self.questions_english = questions_english
         self.questions_hindi = questions_hindi
@@ -163,6 +166,90 @@ class LiveQuizCoordinator:
         self.session_history: List[str] = []
         self.question_duration = 60  # seconds per question (default 1 minute)
         self.poll_to_question_map: Dict[str, tuple] = {}  # poll_id -> (session_id, question_index)
+        
+        # Storage for completed quiz sessions
+        self.completed_quizzes: Dict[str, LiveQuizSession] = {}  # global_quiz_id -> session
+        self.quiz_id_counter = self._load_quiz_counter()
+        self._load_completed_quizzes()
+    
+    def _load_quiz_counter(self) -> int:
+        """Load the quiz ID counter from file"""
+        try:
+            if os.path.exists('data/quiz_id_counter.json'):
+                with open('data/quiz_id_counter.json', 'r') as f:
+                    data = json.load(f)
+                    return data.get('counter', 1)
+        except Exception as e:
+            logger.error(f"Failed to load quiz counter: {e}")
+        return 1
+    
+    def _save_quiz_counter(self):
+        """Save the quiz ID counter to file"""
+        try:
+            os.makedirs('data', exist_ok=True)
+            with open('data/quiz_id_counter.json', 'w') as f:
+                json.dump({'counter': self.quiz_id_counter}, f)
+        except Exception as e:
+            logger.error(f"Failed to save quiz counter: {e}")
+    
+    def _load_completed_quizzes(self):
+        """Load last 50 completed quizzes from file into memory
+        
+        Note: This loads only metadata. Full session data (participants, etc.) 
+        is only available during the same runtime. Force-send commands work 
+        only for quizzes completed in the current session.
+        """
+        try:
+            if os.path.exists('data/completed_global_quizzes.json'):
+                with open('data/completed_global_quizzes.json', 'r') as f:
+                    data = json.load(f)
+                    logger.info(f"Loaded metadata for {len(data)} completed quizzes from storage")
+                    logger.info("Note: Force-send leaderboards only work for quizzes completed in current session")
+        except Exception as e:
+            logger.error(f"Failed to load completed quizzes: {e}")
+    
+    def _save_completed_quiz(self, session: LiveQuizSession):
+        """Save a completed quiz to storage (keep last 100)"""
+        try:
+            os.makedirs('data', exist_ok=True)
+            
+            quiz_data = {
+                'quiz_id': session.global_quiz_id,
+                'session_id': session.session_id,
+                'chapter': session.chapter,
+                'start_time': session.start_time.isoformat() if session.start_time else None,
+                'end_time': session.end_time.isoformat() if session.end_time else None,
+                'question_count': session.get_question_count(),
+                'participant_count': len(session.participants),
+                'group_ids': list(session.group_states.keys())
+            }
+            
+            if os.path.exists('data/completed_global_quizzes.json'):
+                with open('data/completed_global_quizzes.json', 'r') as f:
+                    all_quizzes = json.load(f)
+            else:
+                all_quizzes = []
+            
+            all_quizzes.insert(0, quiz_data)
+            all_quizzes = all_quizzes[:100]
+            
+            with open('data/completed_global_quizzes.json', 'w') as f:
+                json.dump(all_quizzes, f, indent=2)
+            
+            self.completed_quizzes[session.global_quiz_id] = session
+            
+            # Keep only last 50 in memory (remove oldest)
+            if len(self.completed_quizzes) > 50:
+                # Sort by insertion order (oldest first) and remove the oldest ones
+                all_keys = list(self.completed_quizzes.keys())
+                oldest_keys = all_keys[:len(all_keys) - 50]
+                for key in oldest_keys:
+                    del self.completed_quizzes[key]
+                logger.info(f"Trimmed {len(oldest_keys)} oldest quizzes from memory, keeping 50 most recent")
+            
+            logger.info(f"Saved completed quiz {session.global_quiz_id} to storage")
+        except Exception as e:
+            logger.error(f"Failed to save completed quiz: {e}")
     
     def has_active_session(self) -> bool:
         """Check if there's an active live quiz session"""
@@ -172,10 +259,15 @@ class LiveQuizCoordinator:
                        questions_hindi: List[dict], admin_id: int) -> LiveQuizSession:
         """Create a new live quiz session with both English and Hindi questions"""
         session_id = f"live_{int(datetime.now().timestamp())}"
-        session = LiveQuizSession(session_id, chapter, questions_english, questions_hindi, admin_id)
+        
+        global_quiz_id = f"GQ{self.quiz_id_counter:04d}"
+        self.quiz_id_counter += 1
+        self._save_quiz_counter()
+        
+        session = LiveQuizSession(session_id, chapter, questions_english, questions_hindi, admin_id, global_quiz_id)
         self.active_session = session
         self.session_history.append(session_id)
-        logger.info(f"Created live quiz session {session_id} for chapter: {chapter} with {len(questions_english)} questions")
+        logger.info(f"Created live quiz session {session_id} ({global_quiz_id}) for chapter: {chapter} with {len(questions_english)} questions")
         return session
     
     async def send_countdown_reminder(self, context: ContextTypes.DEFAULT_TYPE, 
@@ -408,6 +500,9 @@ Good luck! 🍀
             for user_id in session.participants.keys():
                 session.mark_unattempted(user_id, session.get_question_count())
             
+            # Save completed quiz to storage
+            self._save_completed_quiz(session)
+            
             # Get sorted participants with global ranks
             sorted_participants = session.get_sorted_participants()
             
@@ -416,7 +511,8 @@ Good luck! 🍀
             for rank, participant in enumerate(sorted_participants, 1):
                 global_rank_map[participant.user_id] = rank
             
-            # Generate and send leaderboards to all groups
+            # Generate and send leaderboards to all groups with retry logic
+            failed_groups = []
             for group_id, group_state in session.group_states.items():
                 try:
                     # Send global leaderboard (top 50)
@@ -426,6 +522,7 @@ Good luck! 🍀
                         text=global_leaderboard,
                         parse_mode='Markdown'
                     )
+                    logger.info(f"Sent global leaderboard for {session.global_quiz_id} to group {group_id}")
                     
                     await asyncio.sleep(0.5)
                     
@@ -439,17 +536,22 @@ Good luck! 🍀
                             text=group_leaderboard,
                             parse_mode='Markdown'
                         )
+                        logger.info(f"Sent group leaderboard for {session.global_quiz_id} to group {group_id}")
                     
                     await asyncio.sleep(0.3)
                     
                 except Exception as e:
                     logger.error(f"Failed to send leaderboard to group {group_id}: {e}", exc_info=True)
+                    failed_groups.append(group_id)
                 finally:
                     # ALWAYS release lock, even if leaderboard sending failed
                     quiz_lock_manager.release_lock(group_id)
                     logger.info(f"Released quiz lock for group {group_id} after live quiz completion")
             
-            logger.info(f"Live quiz session {session.session_id} completed with {len(session.participants)} participants")
+            if failed_groups:
+                logger.warning(f"Failed to send leaderboards to {len(failed_groups)} groups for quiz {session.global_quiz_id}. Use /fgloballeaderboard or /fgroupleaderboard to retry.")
+            
+            logger.info(f"Live quiz session {session.session_id} ({session.global_quiz_id}) completed with {len(session.participants)} participants")
             
             # Clean up poll mappings to avoid memory leaks
             polls_to_remove = [poll_id for poll_id, (sess_id, _, _) in self.poll_to_question_map.items() 
@@ -475,6 +577,8 @@ Good luck! 🍀
 ║    🏆 GLOBAL LIVE QUIZ RESULTS 🏆    ║
 ║       Chapter: {chapter_display}       
 ╚═══════════════════════════════════════╝
+
+🆔 **QUIZ ID:** `{session.global_quiz_id}`
 
 📊 **QUIZ STATISTICS**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -734,6 +838,115 @@ to get detailed AI-powered explanation!
         
         logger.info(f"Live quiz ended early after {questions_answered} questions")
         return True, f"Live quiz ended successfully. Leaderboard sent for {questions_answered} questions."
+    
+    def get_quiz_by_id(self, global_quiz_id: str) -> Optional[LiveQuizSession]:
+        """Get a completed quiz by its global quiz ID"""
+        return self.completed_quizzes.get(global_quiz_id)
+    
+    async def force_send_global_leaderboard(self, context: ContextTypes.DEFAULT_TYPE, 
+                                           global_quiz_id: str, force_join_manager) -> tuple[bool, str]:
+        """Force send global leaderboard for a specific quiz to all groups
+        
+        Note: Only works for quizzes completed in the current bot session.
+        """
+        # Validate quiz ID format
+        import re
+        if not re.match(r'^GQ\d{4}$', global_quiz_id):
+            return False, f"❌ Invalid quiz ID format. Expected format: GQ0001"
+        
+        session = self.get_quiz_by_id(global_quiz_id)
+        if not session:
+            return False, f"❌ Quiz {global_quiz_id} not found. Note: Force-send only works for quizzes completed in the current bot session."
+        
+        if not session.is_completed:
+            return False, f"❌ Quiz {global_quiz_id} is not completed yet."
+        
+        # Get sorted participants with global ranks
+        sorted_participants = session.get_sorted_participants()
+        
+        # Generate global leaderboard
+        global_leaderboard = self.generate_global_leaderboard(session, sorted_participants)
+        
+        # Get all groups from force_join_manager
+        all_groups = force_join_manager.get_all_groups()
+        
+        sent_count = 0
+        failed_count = 0
+        
+        for group_id in all_groups:
+            try:
+                await context.bot.send_message(
+                    chat_id=group_id,
+                    text=global_leaderboard,
+                    parse_mode='Markdown'
+                )
+                sent_count += 1
+                await asyncio.sleep(0.3)
+            except Exception as e:
+                logger.error(f"Failed to send global leaderboard to group {group_id}: {e}")
+                failed_count += 1
+        
+        return True, f"✅ Global leaderboard for quiz {global_quiz_id} sent to {sent_count} groups. Failed: {failed_count}"
+    
+    async def force_send_group_leaderboards(self, context: ContextTypes.DEFAULT_TYPE, 
+                                           global_quiz_id: str, force_join_manager) -> tuple[bool, str]:
+        """Force send group-specific leaderboards for a specific quiz to all groups
+        
+        Note: Only works for quizzes completed in the current bot session.
+        """
+        # Validate quiz ID format
+        import re
+        if not re.match(r'^GQ\d{4}$', global_quiz_id):
+            return False, f"❌ Invalid quiz ID format. Expected format: GQ0001"
+        
+        session = self.get_quiz_by_id(global_quiz_id)
+        if not session:
+            return False, f"❌ Quiz {global_quiz_id} not found. Note: Force-send only works for quizzes completed in the current bot session."
+        
+        if not session.is_completed:
+            return False, f"❌ Quiz {global_quiz_id} is not completed yet."
+        
+        # Get sorted participants with global ranks
+        sorted_participants = session.get_sorted_participants()
+        
+        # Create global rank mapping
+        global_rank_map = {}
+        for rank, participant in enumerate(sorted_participants, 1):
+            global_rank_map[participant.user_id] = rank
+        
+        # Get all groups from force_join_manager
+        all_groups = force_join_manager.get_all_groups()
+        
+        sent_count = 0
+        failed_count = 0
+        no_participants_count = 0
+        
+        for group_id in all_groups:
+            try:
+                # Get group title from session group_states or use a default
+                group_title = session.group_states.get(group_id, type('obj', (object,), {'group_title': 'Group'})).group_title
+                
+                # Generate group-specific leaderboard
+                group_leaderboard = self.generate_group_leaderboard(
+                    session, group_id, group_title, global_rank_map
+                )
+                
+                if group_leaderboard:
+                    await context.bot.send_message(
+                        chat_id=group_id,
+                        text=group_leaderboard,
+                        parse_mode='Markdown'
+                    )
+                    sent_count += 1
+                else:
+                    no_participants_count += 1
+                
+                await asyncio.sleep(0.3)
+            except Exception as e:
+                logger.error(f"Failed to send group leaderboard to group {group_id}: {e}")
+                failed_count += 1
+        
+        return True, f"✅ Group leaderboards for quiz {global_quiz_id} sent to {sent_count} groups. No participants: {no_participants_count}, Failed: {failed_count}"
 
 
 # Global instance

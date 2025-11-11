@@ -1827,6 +1827,106 @@ async def forceliveleaderboard_command(update: Update, context: ContextTypes.DEF
             f"Please try again or contact support."
         )
 
+@admin_only
+async def fgloballeaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Force send global leaderboard for a specific quiz ID to all groups (admin only)."""
+    try:
+        if not context.args or len(context.args) < 1:
+            await update.message.reply_text(
+                "❌ Invalid format!\n\n"
+                "Usage: /fgloballeaderboard GQ0001\n\n"
+                "Example: /fgloballeaderboard GQ0042\n\n"
+                "This will send the global leaderboard for quiz GQ0042 to all groups.\n\n"
+                "Note: Only works for quizzes completed in the current bot session.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        quiz_id = context.args[0].upper()
+        
+        await update.message.reply_text(
+            f"🔄 Sending global leaderboard for quiz {quiz_id}...\n\n"
+            "Please wait while I send the leaderboard to all groups..."
+        )
+        
+        success, message = await live_quiz_coordinator.force_send_global_leaderboard(
+            context, quiz_id, force_join_manager
+        )
+        
+        if success:
+            await update.message.reply_text(
+                "╔═══════════════════════════════════╗\n"
+                "║   ✅ LEADERBOARD SENT ✅          ║\n"
+                "╚═══════════════════════════════════╝\n\n"
+                f"📊 {message}\n\n"
+                "【~@DrQuizRobot】"
+            )
+        else:
+            await update.message.reply_text(
+                "╔═══════════════════════════════════╗\n"
+                "║   ⚠️ FAILED ⚠️                    ║\n"
+                "╚═══════════════════════════════════╝\n\n"
+                f"📢 {message}\n\n"
+                "【~@DrQuizRobot】"
+            )
+    
+    except Exception as e:
+        logger.error(f"Error in fgloballeaderboard: {e}", exc_info=True)
+        await update.message.reply_text(
+            f"❌ Error sending leaderboard: {str(e)}\n\n"
+            f"Please try again or contact support."
+        )
+
+@admin_only
+async def fgroupleaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Force send group leaderboards for a specific quiz ID to all groups (admin only)."""
+    try:
+        if not context.args or len(context.args) < 1:
+            await update.message.reply_text(
+                "❌ Invalid format!\n\n"
+                "Usage: /fgroupleaderboard GQ0001\n\n"
+                "Example: /fgroupleaderboard GQ0042\n\n"
+                "This will send each group's leaderboard for quiz GQ0042 to all groups.\n\n"
+                "Note: Only works for quizzes completed in the current bot session.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        quiz_id = context.args[0].upper()
+        
+        await update.message.reply_text(
+            f"🔄 Sending group leaderboards for quiz {quiz_id}...\n\n"
+            "Please wait while I send the leaderboards to all groups..."
+        )
+        
+        success, message = await live_quiz_coordinator.force_send_group_leaderboards(
+            context, quiz_id, force_join_manager
+        )
+        
+        if success:
+            await update.message.reply_text(
+                "╔═══════════════════════════════════╗\n"
+                "║   ✅ LEADERBOARDS SENT ✅         ║\n"
+                "╚═══════════════════════════════════╝\n\n"
+                f"📊 {message}\n\n"
+                "【~@DrQuizRobot】"
+            )
+        else:
+            await update.message.reply_text(
+                "╔═══════════════════════════════════╗\n"
+                "║   ⚠️ FAILED ⚠️                    ║\n"
+                "╚═══════════════════════════════════╝\n\n"
+                f"📢 {message}\n\n"
+                "【~@DrQuizRobot】"
+            )
+    
+    except Exception as e:
+        logger.error(f"Error in fgroupleaderboard: {e}", exc_info=True)
+        await update.message.reply_text(
+            f"❌ Error sending leaderboards: {str(e)}\n\n"
+            f"Please try again or contact support."
+        )
+
 async def refresh_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Refresh and reset bot state (available to all users)."""
     try:
@@ -2839,6 +2939,8 @@ def main():
     application.add_handler(CommandHandler("startlivequiz", startlivequiz_command))
     application.add_handler(CommandHandler("endlivequiz", endlivequiz_command))
     application.add_handler(CommandHandler("forceliveleaderboard", forceliveleaderboard_command))
+    application.add_handler(CommandHandler("fgloballeaderboard", fgloballeaderboard_command))
+    application.add_handler(CommandHandler("fgroupleaderboard", fgroupleaderboard_command))
     
     # User utility commands
     application.add_handler(CommandHandler("refresh", refresh_command))
