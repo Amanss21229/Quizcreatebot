@@ -289,3 +289,177 @@ OUTPUT RULES:
         text = re.sub(r'\n{3,}', '\n\n', text)
         
         return text.strip()
+    
+    def generate_jee_quiz(self, chapter: str, num_questions: int, language: str = 'english') -> List[Dict]:
+        """
+        Generate JEE (Joint Entrance Examination) focused MCQs for a given chapter.
+        
+        Args:
+            chapter: Name of the chapter from NCERT Class 11 or 12 (Physics, Chemistry, Mathematics)
+            num_questions: Number of questions to generate
+            language: Language for questions ('hindi' or 'english')
+        
+        Returns:
+            List of dictionaries containing question data with metadata
+        """
+        prompt = self._create_jee_prompt(chapter, num_questions, language)
+        
+        try:
+            response = self.model.generate_content(prompt)
+            questions = self._parse_jee_response(response.text, num_questions)
+            return questions
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error generating JEE quiz: {e}")
+            raise
+    
+    def _create_jee_prompt(self, chapter: str, num_questions: int, language: str = 'english') -> str:
+        """Create a detailed prompt for Gemini to generate JEE-level MCQs with metadata."""
+        
+        language_instruction = ""
+        if language == 'hindi':
+            language_instruction = "\n\nIMPORTANT: Generate ALL questions, options, and explanations in HINDI language (Devanagari script). Use proper Hindi scientific terminology."
+        else:
+            language_instruction = "\n\nIMPORTANT: Generate ALL questions, options, and explanations in ENGLISH language."
+        
+        return f"""You are an expert JEE (Joint Entrance Examination) question creator with complete access to:
+1. JEE Main Previous Year Questions (PYQs) database (2015-2024)
+2. JEE Advanced Previous Year Questions (PYQs) database (2015-2024)
+3. Complete NCERT Class 11 & 12 textbooks for Physics, Chemistry, and Mathematics
+4. Standard reference books: HC Verma (Concepts of Physics), DC Pandey (Understanding Physics), RD Sharma (Mathematics)
+
+Generate exactly {num_questions} Multiple Choice Questions (MCQs) for the chapter: "{chapter}" from NCERT Class 11th or 12th.
+{language_instruction}
+
+CRITICAL REQUIREMENTS - FOLLOW STRICTLY:
+
+**Question Distribution (MANDATORY):**
+- 90% questions MUST be JEE MAINS level (appropriate for JEE Main exam standard)
+- 10% questions MUST be JEE ADVANCED level (appropriate for JEE Advanced exam standard)
+
+**Question Sources:**
+- NCERT-based questions (conceptual from NCERT textbooks)
+- JEE Main PYQs (2015-2024)
+- JEE Advanced PYQs (2015-2024)
+- Standard publications: HC Verma, DC Pandey, RD Sharma
+
+**Metadata Requirements (CRITICAL):**
+For EACH question, you MUST include:
+1. "level": Either "Mains Level" or "Advanced Level"
+2. "source": One of the following:
+   - "PYQ JEE Main YYYY" (for JEE Main previous year questions, e.g., "PYQ JEE Main 2023")
+   - "PYQ JEE Advanced YYYY" (for JEE Advanced previous year questions)
+   - "HC Verma" (for questions from HC Verma)
+   - "DC Pandey" (for questions from DC Pandey)
+   - "RD Sharma" (for questions from RD Sharma)
+   - "NCERT" (for NCERT-based conceptual questions)
+
+**General Requirements:**
+1. Each question must have EXACTLY 4 options
+2. Questions should test conceptual understanding and problem-solving ability
+3. Include numerical problems, conceptual questions, and application-based questions
+4. Maintain proper JEE difficulty standards
+
+Output format (JSON array with metadata):
+[
+  {{
+    "question": "A particle moves in a circle of radius r with constant speed v. What is the magnitude of its acceleration?",
+    "options": [
+      "v²/r directed towards center",
+      "v²/r directed away from center",
+      "Zero",
+      "v/r directed towards center"
+    ],
+    "correct_answer": 0,
+    "explanation": "For uniform circular motion, centripetal acceleration = v²/r directed towards the center of the circle.",
+    "metadata": {{
+      "level": "Mains Level",
+      "source": "NCERT"
+    }}
+  }},
+  {{
+    "question": "The de Broglie wavelength of an electron accelerated through a potential difference V is λ. What will be the de Broglie wavelength when the accelerating potential is increased to 4V? (PYQ JEE Main 2022)",
+    "options": [
+      "4λ",
+      "2λ",
+      "λ/2",
+      "λ/4"
+    ],
+    "correct_answer": 2,
+    "explanation": "de Broglie wavelength is inversely proportional to square root of V. When V becomes 4V, wavelength becomes λ/2.",
+    "metadata": {{
+      "level": "Mains Level",
+      "source": "PYQ JEE Main 2022"
+    }}
+  }},
+  {{
+    "question": "A uniform rod of length L and mass M is pivoted at its center. Two forces each of magnitude F are applied as shown, one at distance L/4 and another at distance L/2 from the pivot, in opposite directions perpendicular to the rod. The net torque on the rod is: (HC Verma)",
+    "options": [
+      "FL/4",
+      "FL/2",
+      "3FL/4",
+      "Zero"
+    ],
+    "correct_answer": 0,
+    "explanation": "Net torque = F(L/2) - F(L/4) = FL/4. The torques are in opposite directions, so we subtract them.",
+    "metadata": {{
+      "level": "Advanced Level",
+      "source": "HC Verma"
+    }}
+  }}
+]
+
+STRICT FORMATTING RULES:
+- correct_answer is the index (0-3) of the correct option
+- Question text must be clear and unambiguous
+- Options must be concise (under 80 characters each)
+- Each question MUST have a "metadata" object with "level" and "source"
+- Level must be either "Mains Level" or "Advanced Level"
+- Source must match one of the allowed sources listed above
+- Ensure 90% questions are Mains Level and 10% are Advanced Level
+- For PYQ questions, include the year in the source (e.g., "PYQ JEE Main 2023")
+- For publication questions, mention the publication name in source
+
+Generate exactly {num_questions} questions now in valid JSON format with proper metadata."""
+    
+    def _parse_jee_response(self, response_text: str, expected_count: int) -> List[Dict]:
+        """Parse Gemini's response for JEE questions and extract metadata."""
+        try:
+            json_match = re.search(r'\[[\s\S]*\]', response_text)
+            if json_match:
+                questions_data = json.loads(json_match.group())
+            else:
+                questions_data = json.loads(response_text)
+            
+            if not isinstance(questions_data, list):
+                raise ValueError("Response is not a list of questions")
+            
+            questions = []
+            for i, q in enumerate(questions_data[:expected_count]):
+                if not all(key in q for key in ['question', 'options', 'correct_answer']):
+                    continue
+                
+                metadata = q.get('metadata', {})
+                level = metadata.get('level', 'Mains Level')
+                source = metadata.get('source', 'NCERT')
+                
+                questions.append({
+                    'question': q['question'],
+                    'options': q['options'][:4],
+                    'correct_answer': int(q['correct_answer']),
+                    'explanation': q.get('explanation', ''),
+                    'metadata': {
+                        'level': level,
+                        'source': source
+                    }
+                })
+            
+            return questions
+        
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error parsing JEE response: {e}")
+            logger.debug(f"Response text: {response_text[:500]}")
+            raise ValueError("Failed to parse JEE quiz questions from AI response")
