@@ -48,7 +48,7 @@ class ConversationState:
 
 class ConversationAI:
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-pro')
         self.conversation_states: Dict[Tuple[int, int], ConversationState] = {}
     
     def _get_state_key(self, chat_id: int, user_id: int) -> Tuple[int, int]:
