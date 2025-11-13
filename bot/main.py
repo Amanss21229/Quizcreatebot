@@ -720,6 +720,209 @@ async def create_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 @check_force_join
+async def create_jee_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle the /jeequiz command to generate JEE-focused quizzes."""
+    chat_id = update.effective_chat.id
+    lock_acquired = False
+    
+    try:
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║      ❌ INVALID FORMAT ❌       ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "📝 **Usage:**\n"
+                "/jeequiz [chapter name] [number]\n\n"
+                "📖 **Examples:**\n"
+                "• /jeequiz Mechanics 10\n"
+                "• /jeequiz Thermodynamics 15\n"
+                "• /jeequiz Calculus 20\n\n"
+                "ℹ️ **Info:**\n"
+                "• 90% JEE Mains Level questions\n"
+                "• 10% JEE Advanced Level questions\n"
+                "• Questions from NCERT, PYQs, HC Verma, DC Pandey, RD Sharma\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        if quiz_lock_manager.is_locked(chat_id):
+            lock_info = quiz_lock_manager.get_lock_info(chat_id)
+            quiz_type_msg = "timer quiz" if lock_info.quiz_type == "timer_quiz" else "quiz"
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║   ⚠️ QUIZ IN PROGRESS ⚠️      ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                f"🎮 A {quiz_type_msg} is currently active!\n\n"
+                "⏳ **Please:**\n"
+                "• Wait for current quiz to complete\n"
+                "• Or use /stopquiz to end it\n\n"
+                "📌 Only one quiz can run at a time per group.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        num_questions_str = context.args[-1]
+        chapter_parts = context.args[:-1]
+        chapter = ' '.join(chapter_parts)
+        
+        try:
+            num_questions = int(num_questions_str)
+        except ValueError:
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║    ❌ INVALID NUMBER ❌         ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                f"🔢 You entered: '{num_questions_str}'\n\n"
+                "✅ Please provide a valid number.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        if num_questions < 1 or num_questions > 50:
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║   ⚠️ OUT OF RANGE ⚠️          ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                f"🔢 You requested: **{num_questions}** questions\n\n"
+                "✅ Valid range: **1 - 50** questions\n\n"
+                "Please choose a number within the range.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        if not quiz_lock_manager.acquire_lock(chat_id, "jeequiz"):
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║   ⚠️ QUIZ IN PROGRESS ⚠️      ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "🎮 Another quiz is currently active!\n\n"
+                "⏳ Please wait for it to complete.\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        lock_acquired = True
+        
+        language = language_manager.get_language(chat_id)
+        
+        await update.message.reply_text(
+            "╔═══════════════════════════════╗\n"
+            "║   ⚡ JEE QUIZ GENERATION ⚡    ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            f"📚 Chapter: **{chapter}**\n"
+            f"📝 Questions: **{num_questions}**\n"
+            f"🎯 Distribution: 90% Mains, 10% Advanced\n\n"
+            "🔄 Generating JEE-level questions...\n"
+            "⏳ Please wait a moment...\n\n"
+            "【~@DrQuizRobot】"
+        )
+        
+        logger.info(f"Generating JEE quiz: chapter='{chapter}', questions={num_questions}, language={language}")
+        questions = quiz_gen.generate_jee_quiz(chapter, num_questions, language)
+        
+        if not questions:
+            if lock_acquired:
+                quiz_lock_manager.release_lock(chat_id)
+            await update.message.reply_text(
+                "╔═══════════════════════════════╗\n"
+                "║   ❌ GENERATION FAILED ❌      ║\n"
+                "╚═══════════════════════════════╝\n\n"
+                "😔 Could not generate questions\n\n"
+                "💡 **Try:**\n"
+                "• Check chapter name spelling\n"
+                "• Use NCERT Class 11/12 chapters\n"
+                "• Try a different topic\n\n"
+                "【~@DrQuizRobot】"
+            )
+            return
+        
+        for i, q in enumerate(questions, 1):
+            try:
+                options = [str(opt).strip() for opt in q['options'][:4]]
+                
+                metadata = q.get('metadata', {})
+                level = metadata.get('level', 'Mains Level')
+                source = metadata.get('source', 'NCERT')
+                
+                metadata_text = f"[{level} | {source}]"
+                question_text = f"{i}. {q['question']}\n\n{metadata_text}\n【~@DrQuizRobot】"
+                
+                if len(question_text) > 300:
+                    question_text = f"{i}. {q['question'][:250]}...\n\n{metadata_text}\n【~@DrQuizRobot】"
+                
+                explanation_text = q.get('explanation', '')
+                if explanation_text:
+                    explanation_with_metadata = f"{explanation_text}\n\n{metadata_text}"
+                    explanation_text = explanation_with_metadata[:200] if len(explanation_with_metadata) > 200 else explanation_with_metadata
+                else:
+                    explanation_text = None
+                
+                await update.message.reply_poll(
+                    question=question_text,
+                    options=options,
+                    type='quiz',
+                    correct_option_id=int(q['correct_answer']),
+                    is_anonymous=False,
+                    explanation=explanation_text,
+                )
+                logger.info(f"Successfully sent JEE quiz poll {i}/{len(questions)} - {level}")
+                
+            except Exception as e:
+                logger.error(f"Error sending JEE quiz poll {i}: {e}", exc_info=True)
+                logger.error(f"Question data: {q}")
+                formatted = quiz_gen.format_question_with_watermark(i, q)
+                metadata = q.get('metadata', {})
+                formatted += f"\n\n[{metadata.get('level', 'Mains Level')} | {metadata.get('source', 'NCERT')}]"
+                formatted += f"\n✅ Correct Answer: {chr(65 + q['correct_answer'])}) {q['options'][q['correct_answer']]}"
+                await update.message.reply_text(formatted)
+                logger.warning(f"Sent question {i} as text instead of poll")
+        
+        stats_manager.record_quiz(len(questions))
+        
+        await update.message.reply_text(
+            "╔═══════════════════════════════╗\n"
+            "║  ✅ JEE QUIZ COMPLETE! ✅      ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            f"🎉 Successfully sent **{len(questions)}** JEE questions!\n\n"
+            f"📚 Chapter: **{chapter}**\n"
+            f"🎯 Mix of Mains & Advanced level\n"
+            f"📖 From NCERT, PYQs, HC Verma, DC Pandey, RD Sharma\n\n"
+            "🏆 Good luck with your JEE preparation!\n\n"
+            "【~@DrQuizRobot】"
+        )
+        
+        if lock_acquired:
+            quiz_lock_manager.release_lock(chat_id)
+        
+    except ValueError as e:
+        logger.error(f"Value error in create_jee_quiz: {e}")
+        if lock_acquired:
+            quiz_lock_manager.release_lock(chat_id)
+        await update.message.reply_text(
+            "╔═══════════════════════════════╗\n"
+            "║   ❌ GENERATION FAILED ❌      ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "😔 Could not generate JEE quiz\n\n"
+            "💡 **Please check:**\n"
+            "• Chapter name is correct\n"
+            "• It's from NCERT Class 11/12\n"
+            "• Spelling is accurate\n\n"
+            "【~@DrQuizRobot】"
+        )
+    except Exception as e:
+        logger.error(f"Error in create_jee_quiz: {e}")
+        if lock_acquired:
+            quiz_lock_manager.release_lock(chat_id)
+        await update.message.reply_text(
+            "╔═══════════════════════════════╗\n"
+            "║      ❌ ERROR ❌               ║\n"
+            "╚═══════════════════════════════╝\n\n"
+            "⚠️ An unexpected error occurred\n\n"
+            "🔄 Please try again in a moment\n\n"
+            "【~@DrQuizRobot】"
+        )
+
+@check_force_join
 async def timed_quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /quiz command to start a timed quiz session with 20 questions."""
     chat_id = None
@@ -2952,6 +3155,7 @@ def main():
     application.add_handler(CommandHandler("developer", developer_command))
     application.add_handler(CommandHandler("donate", donate_command))
     application.add_handler(CommandHandler("cquiz", create_quiz))
+    application.add_handler(CommandHandler("jeequiz", create_jee_quiz))
     application.add_handler(CommandHandler("quiz", timed_quiz_command))
     application.add_handler(CommandHandler("stopquiz", stop_quiz_command))
     application.add_handler(CommandHandler("end", end_quiz_command))
