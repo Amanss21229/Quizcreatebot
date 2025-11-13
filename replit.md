@@ -18,7 +18,9 @@ Preferred communication style: Simple, everyday language.
 
 **Core Components**:
 
-- **Quiz Generation Engine** (`quiz_generator.py`): Employs Google Gemini 2.5 Flash for AI-powered question generation, supporting bilingual output (English/Hindi), NEET-standard MCQs, detailed explanations (max 5 lines with NCERT references), and JSON response validation.
+- **Quiz Generation Engine** (`quiz_generator.py`): Employs Google Gemini 2.5 Flash for AI-powered question generation, supporting:
+  - **NEET Quizzes**: Bilingual output (English/Hindi), NEET-standard MCQs from NCERT and PYQs
+  - **JEE Quizzes**: Chapter-based questions with 90% JEE Mains and 10% JEE Advanced level distribution, sourced from NCERT, JEE PYQs (2015-2024), HC Verma, DC Pandey, and RD Sharma. Each question includes metadata showing difficulty level and source with strict validation and auto-correction to ensure proper distribution.
 - **Admin Management** (`admin_manager.py`): Manages permanent and dynamic bot administrators with persistent storage.
 - **Force Join System** (`force_join.py`): Verifies user membership in required channels/groups before quiz generation.
 - **Statistics Tracking** (`stats_manager.py`): Monitors user, group, and quiz metrics.
@@ -50,6 +52,16 @@ Preferred communication style: Simple, everyday language.
 ### Quiz Generation Workflow
 
 The workflow involves user command parsing, force join verification, input validation, language detection, LLM prompt construction, Gemini API call for structured JSON, response parsing, Telegram native poll creation, and statistics updates. Quizzes support NEET scoring (+4 for correct, -1 for wrong, 0 for unattempted).
+
+**Quiz Types**:
+- **NEET Quizzes** (`/cquiz`, `/quiz`): Medical entrance exam questions from NCERT and NEET PYQs
+- **JEE Quizzes** (`/jeequiz`): Engineering entrance exam questions with:
+  - Mandatory 90% JEE Mains level and 10% JEE Advanced level distribution
+  - Questions from NCERT, JEE Main/Advanced PYQs (2015-2024), HC Verma, DC Pandey, RD Sharma
+  - Metadata validation with regex-based source verification
+  - Automatic distribution correction if AI output doesn't match 90/10 ratio
+  - Support for 1-50 questions per quiz
+  - Each question displays level (Mains/Advanced) and source information
 
 **Timed Quiz Feature**: The `/quiz` command now includes a customizable timer selection interface. After generating questions, users are presented with inline keyboard buttons to choose their preferred time per question (15s, 30s, 45s, or 60s). The selected timing is stored in the quiz session and applied consistently across all 20 questions, with auto-advance functionality using the chosen duration plus a 2-second buffer.
 
