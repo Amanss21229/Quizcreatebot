@@ -7,6 +7,7 @@ from functools import wraps
 from datetime import datetime, time as dt_time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, PollAnswerHandler, filters, ContextTypes
+from telegram.ext import ApplicationHandlerStop
 from bot.config import TELEGRAM_BOT_TOKEN, MIN_QUESTIONS, MAX_QUESTIONS, ADMIN_USER_IDS
 from aiohttp import web
 from bot.quiz_generator import QuizGenerator
@@ -24,6 +25,7 @@ from bot.good_morning_manager import good_morning_manager
 from bot.quiz_lock_manager import quiz_lock_manager
 from bot.live_quiz_manager import live_quiz_coordinator
 from bot.database import db_pool, QuizSessionRepository
+from bot.conversation_handler import conversation_ai
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -3138,6 +3140,92 @@ async def post_shutdown(application: Application) -> None:
     except Exception as e:
         logger.error(f"Error closing database: {e}", exc_info=True)
 
+async def conversational_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle conversational messages (non-commands) for natural interaction."""
+    try:
+        message = update.message
+        if not message or not message.text:
+            return
+        
+        chat_id = update.effective_chat.id
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+        
+        should_respond = False
+        
+        if chat_type == 'private':
+            should_respond = True
+        elif chat_type in ['group', 'supergroup']:
+            bot_username = context.bot.username
+            
+            is_mentioned = False
+            if message.entities:
+                for entity in message.entities:
+                    if entity.type == 'mention':
+                        mention_text = message.text[entity.offset:entity.offset + entity.length]
+                        if mention_text == f'@{bot_username}':
+                            is_mentioned = True
+                            break
+                    elif entity.type == 'text_mention' and entity.user and entity.user.id == context.bot.id:
+                        is_mentioned = True
+                        break
+            
+            is_reply_to_bot = (
+                message.reply_to_message and 
+                message.reply_to_message.from_user and 
+                message.reply_to_message.from_user.id == context.bot.id
+            )
+            
+            should_respond = is_mentioned or is_reply_to_bot
+        
+        if not should_respond:
+            return
+        
+        user_message = message.text.strip()
+        
+        if chat_type in ['group', 'supergroup']:
+            bot_username = context.bot.username
+            user_message = user_message.replace(f'@{bot_username}', '').strip()
+        
+        state = conversation_ai.get_or_create_state(chat_id, user_id)
+        
+        intent, analysis = await conversation_ai.understand_intent(user_message, state)
+        
+        response_text, command = await conversation_ai.generate_response(
+            user_message, intent, analysis, state, chat_id, user_id
+        )
+        
+        await message.reply_text(response_text)
+        
+        if command:
+            logger.info(f"Conversation generated command: {command}")
+            
+            context.args = command.split()[1:] if len(command.split()) > 1 else []
+            
+            if command.startswith('/cquiz'):
+                await create_quiz(update, context)
+            elif command.startswith('/quiz'):
+                await timed_quiz_command(update, context)
+            elif command.startswith('/explain'):
+                await explain_command(update, context)
+            elif command.startswith('/language'):
+                await language_command(update, context)
+        
+        raise ApplicationHandlerStop
+        
+    except ApplicationHandlerStop:
+        raise
+    except Exception as e:
+        logger.error(f"Error in conversational handler: {e}", exc_info=True)
+        try:
+            await update.message.reply_text(
+                "Hmm, kuch gadbad ho gayi 😅\n"
+                "Kya aap dobara try kar sakte ho?"
+            )
+        except:
+            pass
+        raise ApplicationHandlerStop
+
 def main():
     """Start the bot."""
     application = (
@@ -3193,14 +3281,24 @@ def main():
     # New member handler
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
     
+    # Conversational AI handler (handles natural language in private chats and when mentioned in groups)
+    # Priority group=0 - runs first and stops propagation when it handles a message
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            conversational_message_handler
+        ),
+        group=0
+    )
+    
     # Message forwarding system: User -> Admin
-    # Forward all non-command messages from private chats to admin group
+    # Priority group=1 - only runs if conversational handler doesn't stop propagation
     application.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE & ~filters.COMMAND,
             forward_user_message_to_admin
         ),
-        group=0
+        group=1
     )
     
     # Message forwarding system: Admin -> User
@@ -3211,11 +3309,11 @@ def main():
             filters.Chat(chat_id=ADMIN_GROUP_ID) & filters.REPLY,
             handle_admin_reply
         ),
-        group=0
+        group=1
     )
     
     # Track all group messages for tagall functionality
-    application.add_handler(MessageHandler(filters.ALL, track_group_members), group=1)
+    application.add_handler(MessageHandler(filters.ALL, track_group_members), group=2)
     
     # Poll answer handler for timed quiz
     application.add_handler(PollAnswerHandler(handle_poll_answer))
