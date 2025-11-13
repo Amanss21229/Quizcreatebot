@@ -2,9 +2,11 @@ import google.generativeai as genai
 from typing import List, Dict
 import json
 import re
+import logging
 from bot.config import GOOGLE_API_KEY, WATERMARK
 
 genai.configure(api_key=GOOGLE_API_KEY)
+logger = logging.getLogger(__name__)
 
 class QuizGenerator:
     def __init__(self):
@@ -424,7 +426,7 @@ STRICT FORMATTING RULES:
 Generate exactly {num_questions} questions now in valid JSON format with proper metadata."""
     
     def _parse_jee_response(self, response_text: str, expected_count: int) -> List[Dict]:
-        """Parse Gemini's response for JEE questions and extract metadata."""
+        """Parse Gemini's response for JEE questions and extract metadata with strict validation."""
         try:
             json_match = re.search(r'\[[\s\S]*\]', response_text)
             if json_match:
@@ -435,14 +437,37 @@ Generate exactly {num_questions} questions now in valid JSON format with proper 
             if not isinstance(questions_data, list):
                 raise ValueError("Response is not a list of questions")
             
+            allowed_sources = ['NCERT', 'HC Verma', 'DC Pandey', 'RD Sharma']
+            pyq_pattern = re.compile(r'^PYQ JEE (Main|Advanced) (19|20)\d{2}$')
+            
             questions = []
-            for i, q in enumerate(questions_data[:expected_count]):
+            malformed_count = 0
+            
+            for i, q in enumerate(questions_data):
                 if not all(key in q for key in ['question', 'options', 'correct_answer']):
+                    malformed_count += 1
+                    logger.warning(f"Question {i+1} missing required keys: {list(q.keys())}")
                     continue
+                
+                if len(questions) >= expected_count:
+                    break
                 
                 metadata = q.get('metadata', {})
                 level = metadata.get('level', 'Mains Level')
                 source = metadata.get('source', 'NCERT')
+                
+                if level not in ['Mains Level', 'Advanced Level']:
+                    logger.warning(f"Invalid level '{level}' in question {i+1}, defaulting to Mains Level")
+                    level = 'Mains Level'
+                
+                source_valid = False
+                if source in allowed_sources:
+                    source_valid = True
+                elif pyq_pattern.match(source):
+                    source_valid = True
+                else:
+                    logger.warning(f"Invalid source '{source}' in question {i+1}, defaulting to NCERT")
+                    source = 'NCERT'
                 
                 questions.append({
                     'question': q['question'],
@@ -455,11 +480,54 @@ Generate exactly {num_questions} questions now in valid JSON format with proper 
                     }
                 })
             
+            if len(questions) < expected_count:
+                raise ValueError(
+                    f"Insufficient valid questions: generated {len(questions)} out of {expected_count} requested "
+                    f"({malformed_count} malformed questions skipped)"
+                )
+            
+            expected_mains = round(expected_count * 0.9)
+            expected_advanced = expected_count - expected_mains
+            
+            mains_indices = [i for i, q in enumerate(questions) if q['metadata']['level'] == 'Mains Level']
+            advanced_indices = [i for i, q in enumerate(questions) if q['metadata']['level'] == 'Advanced Level']
+            
+            if len(mains_indices) != expected_mains or len(advanced_indices) != expected_advanced:
+                logger.warning(
+                    f"Correcting JEE distribution: Expected {expected_mains} Mains/{expected_advanced} Advanced, "
+                    f"got {len(mains_indices)} Mains/{len(advanced_indices)} Advanced"
+                )
+                
+                if len(mains_indices) < expected_mains:
+                    needed = expected_mains - len(mains_indices)
+                    if len(advanced_indices) < needed:
+                        raise ValueError(
+                            f"Cannot achieve 90/10 ratio: need {needed} more Mains but only "
+                            f"{len(advanced_indices)} Advanced available"
+                        )
+                    for i in advanced_indices[:needed]:
+                        questions[i]['metadata']['level'] = 'Mains Level'
+                
+                elif len(advanced_indices) < expected_advanced:
+                    needed = expected_advanced - len(advanced_indices)
+                    if len(mains_indices) < needed:
+                        raise ValueError(
+                            f"Cannot achieve 90/10 ratio: need {needed} more Advanced but only "
+                            f"{len(mains_indices)} Mains available"
+                        )
+                    for i in mains_indices[:needed]:
+                        questions[i]['metadata']['level'] = 'Advanced Level'
+            
+            final_mains = sum(1 for q in questions if q['metadata']['level'] == 'Mains Level')
+            final_advanced = sum(1 for q in questions if q['metadata']['level'] == 'Advanced Level')
+            logger.info(
+                f"JEE quiz validated: {final_mains} Mains ({final_mains/expected_count*100:.0f}%), "
+                f"{final_advanced} Advanced ({final_advanced/expected_count*100:.0f}%)"
+            )
+            
             return questions
         
         except (json.JSONDecodeError, ValueError, KeyError) as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"Error parsing JEE response: {e}")
             logger.debug(f"Response text: {response_text[:500]}")
-            raise ValueError("Failed to parse JEE quiz questions from AI response")
+            raise ValueError(f"Failed to parse JEE quiz questions: {str(e)}")
