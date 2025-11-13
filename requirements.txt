@@ -14,3 +14,9 @@ asyncpg
 psycopg2-binary
 asyncpg
 psycopg2-binary
+aiohttp
+asyncpg
+google-generativeai
+psycopg2-binary
+python-dotenv
+python-telegram-bot[job-queue]
