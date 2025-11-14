@@ -80,9 +80,42 @@ Bot **polling mode** me run hota hai aur saath me ek **web server** bhi chalta h
 2. PostgreSQL database running hai?
 3. Database same region me hai?
 
-### Deployment fails?
+### Deployment fails with "Module not found" error?
+
+**CRITICAL FIX:**
+1. **Clear Build Cache** (ye sabse important hai!):
+   - Render Dashboard me jao
+   - Apni service select karo
+   - **Manual Deploy** button pe click karo
+   - **Clear build cache & deploy** option select karo
+   - Deploy karo
+
+2. **Verify files committed to GitHub:**
+   ```bash
+   # Make sure ye files committed hain:
+   - requirements.txt (NO duplicates)
+   - runtime.txt
+   - render.yaml
+   ```
+
+3. **Check Build Logs:**
+   - Deployment logs me "Successfully installed asyncpg" dikhna chahiye
+   - Agar nahi dikha, build cache clear karo aur retry karo
+
+4. **Files MUST be in repository root:**
+   ```
+   your-repo/
+   ├── requirements.txt  ✅ (root level)
+   ├── runtime.txt       ✅ (root level)
+   ├── render.yaml       ✅ (root level)
+   ├── run.py           ✅ (root level)
+   └── bot/
+   ```
+
+### Other deployment issues?
 1. Build logs dekho kaunsa package install nahi ho raha
-2. `requirements.txt` me sab dependencies hain?
+2. `requirements.txt` me duplicates nahi hone chahiye
+3. Build cache clear karke phir se try karo
 
 ## Cost
 - **Web Service (Free)**: Bot running
