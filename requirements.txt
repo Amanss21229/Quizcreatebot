@@ -2,9 +2,6 @@ google-generativeai>=0.8.5
 python-dotenv>=1.1.1
 python-telegram-bot[job-queue]>=22.5
 aiohttp>=3.9.0
-psycopg2-binary
-asyncpg
-asyncpg
-psycopg2-binary
-asyncpg
-psycopg2-binary
+psycopg2-binary>=2.9.9
+asyncpg>=0.29.0
+APScheduler>=3.10.0
