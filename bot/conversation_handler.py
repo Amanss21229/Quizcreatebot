@@ -70,10 +70,11 @@ class ConversationAI:
 
 Available features:
 1. start_quiz - User wants to take a quiz (cquiz or timed quiz)
-2. explain_topic - User wants explanation of a topic/concept
-3. change_language - User wants to change language
-4. general_chat - General conversation or greeting
-5. help - User needs help/commands
+2. stop_quiz - User wants to stop/end the current quiz
+3. explain_topic - User wants explanation of a topic/concept
+4. change_language - User wants to change language
+5. general_chat - General conversation or greeting
+6. help - User needs help/commands
 
 User message: "{message}"
 
@@ -117,6 +118,8 @@ Respond ONLY with a JSON object:
         
         if intent == 'start_quiz':
             return await self._handle_quiz_request(message, extracted, state, chat_id, user_id)
+        elif intent == 'stop_quiz':
+            return await self._handle_stop_quiz(message, state, chat_id, user_id)
         elif intent == 'explain_topic':
             return await self._handle_explanation_request(message, extracted, state, chat_id, user_id)
         elif intent == 'change_language':
@@ -224,6 +227,21 @@ Respond ONLY with a JSON object:
         self.clear_state(chat_id, user_id)
         
         return (response, command)
+    
+    async def _handle_stop_quiz(self, message: str, state: ConversationState, chat_id: int, user_id: int) -> Tuple[str, Optional[str]]:
+        """Handle request to stop the current quiz."""
+        state.intent = 'stop_quiz'
+        state.context.append({'role': 'user', 'message': message})
+        
+        response = (
+            "Quiz abhi stop kar raha hoon! 🛑\n\n"
+            "Ruko thoda..."
+        )
+        
+        state.context.append({'role': 'assistant', 'message': response, 'command': '/stopquiz'})
+        self.clear_state(chat_id, user_id)
+        
+        return (response, '/stopquiz')
     
     async def _handle_language_change(self, state: ConversationState) -> Tuple[str, Optional[str]]:
         return (
