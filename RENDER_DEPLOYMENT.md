@@ -16,9 +16,11 @@
 4. Settings:
    - **Name**: drquiz-telegram-bot (ya koi bhi naam)
    - **Environment**: Python
-   - **Build Command**: `pip install -r requirements.txt`
+   - **Build Command**: `pip install --upgrade pip && pip install -r requirements.txt`
    - **Start Command**: `python run.py`
    - **Plan**: Free
+   
+**Note**: Repository me `render.yaml` file hai jo automatically in settings ko configure kar degi. Agar manual setup kar rahe ho, to upar ke settings use karo.
 
 ### 3. Add Environment Variables
 Environment Variables section me ye add karo:
@@ -26,8 +28,11 @@ Environment Variables section me ye add karo:
 ```
 TELEGRAM_BOT_TOKEN = <your_telegram_bot_token>
 GEMINI_API_KEY = <your_gemini_api_key>
+GOOGLE_API_KEY = <your_gemini_api_key>
 DATABASE_URL = <internal_database_url_from_step_1>
 ```
+
+**Note**: `GEMINI_API_KEY` aur `GOOGLE_API_KEY` dono same value set karo (bot config dono check karta hai for backward compatibility).
 
 **Important**: Render automatically `PORT` environment variable provide karta hai, manually add karne ki zarurat nahi hai.
 
