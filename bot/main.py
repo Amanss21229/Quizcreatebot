@@ -3157,6 +3157,7 @@ async def conversational_message_handler(update: Update, context: ContextTypes.D
             should_respond = True
         elif chat_type in ['group', 'supergroup']:
             bot_username = context.bot.username
+            message_text_lower = message.text.lower()
             
             is_mentioned = False
             if message.entities:
@@ -3167,6 +3168,20 @@ async def conversational_message_handler(update: Update, context: ContextTypes.D
                             is_mentioned = True
                             break
                     elif entity.type == 'text_mention' and entity.user and entity.user.id == context.bot.id:
+                        is_mentioned = True
+                        break
+            
+            # Also detect plain-text mentions (bot name without @)
+            if not is_mentioned and bot_username:
+                bot_name_variations = [
+                    bot_username.lower(),
+                    'bot',
+                    'drquizrobot',
+                    'dr quiz robot',
+                    'quiz bot'
+                ]
+                for variation in bot_name_variations:
+                    if variation in message_text_lower:
                         is_mentioned = True
                         break
             
