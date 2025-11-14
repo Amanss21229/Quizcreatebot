@@ -1,14 +1,19 @@
 # 🚀 Render Deployment - Step-by-Step Checklist
 
+## ⚠️ **CRITICAL FIX FOUND!**
+**The `pyproject.toml` file was missing `asyncpg` dependency!**
+This has been fixed. Make sure to commit the updated `pyproject.toml` file.
+
 ## ✅ Pre-Deployment Checklist
 
 ### 1. Files to Commit to GitHub
 Make sure these files are in your repository root:
-- [x] `requirements.txt` (clean, no duplicates)
-- [x] `runtime.txt` (contains: python-3.11.9)
-- [x] `render.yaml` (updated with no-cache-dir flag)
-- [x] `run.py`
-- [x] All `bot/` folder files
+- [x] `requirements.txt` (clean, no duplicates) ✅
+- [x] `pyproject.toml` (NOW includes asyncpg!) ✅ **CRITICAL**
+- [x] `runtime.txt` (contains: python-3.11.9) ✅
+- [x] `render.yaml` (updated with setuptools wheel) ✅
+- [x] `run.py` ✅
+- [x] All `bot/` folder files ✅
 
 ### 2. Verify Files on GitHub
 ```bash
