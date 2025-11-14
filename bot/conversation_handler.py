@@ -66,15 +66,16 @@ class ConversationAI:
             del self.conversation_states[key]
     
     async def understand_intent(self, message: str, state: ConversationState) -> Tuple[str, Dict]:
-        prompt = f"""You are a helpful AI assistant for a NEET quiz bot. Analyze the user's message and determine their intent.
+        prompt = f"""You are a helpful AI assistant for a NEET/JEE quiz bot. Analyze the user's message and determine their intent.
 
 Available features:
-1. start_quiz - User wants to take a quiz (cquiz or timed quiz)
-2. stop_quiz - User wants to stop/end the current quiz
-3. explain_topic - User wants explanation of a topic/concept
-4. change_language - User wants to change language
-5. general_chat - General conversation or greeting
-6. help - User needs help/commands
+1. start_quiz - User wants to take a NEET quiz (cquiz or timed quiz)
+2. jee_quiz - User wants to take a JEE quiz specifically
+3. stop_quiz - User wants to stop/end the current quiz
+4. explain_topic - User wants explanation of a topic/concept
+5. change_language - User wants to change language
+6. general_chat - General conversation or greeting
+7. help - User needs help/commands
 
 User message: "{message}"
 
@@ -88,7 +89,7 @@ Respond ONLY with a JSON object:
         "chapter": "chapter name if mentioned",
         "topic": "topic if asking for explanation",
         "num_questions": "number if mentioned",
-        "quiz_type": "cquiz or timed_quiz if clear"
+        "quiz_type": "cquiz, timed_quiz, or jeequiz"
     }},
     "needs_clarification": true/false,
     "clarification_needed": "what info is missing"
@@ -118,6 +119,8 @@ Respond ONLY with a JSON object:
         
         if intent == 'start_quiz':
             return await self._handle_quiz_request(message, extracted, state, chat_id, user_id)
+        elif intent == 'jee_quiz':
+            return await self._handle_jee_quiz_request(message, extracted, state, chat_id, user_id)
         elif intent == 'stop_quiz':
             return await self._handle_stop_quiz(message, state, chat_id, user_id)
         elif intent == 'explain_topic':
@@ -125,7 +128,7 @@ Respond ONLY with a JSON object:
         elif intent == 'change_language':
             return await self._handle_language_change(state)
         elif intent == 'help':
-            response = "Aap mujhse quiz le sakte ho, koi topic samajh sakte ho, ya language change kar sakte ho! Kya madad chahiye? 😊"
+            response = "Aap mujhse NEET/JEE quiz le sakte ho, koi topic samajh sakte ho, ya language change kar sakte ho! Kya madad chahiye? 😊"
             state.context.append({'role': 'user', 'message': message})
             state.context.append({'role': 'assistant', 'message': response})
             return response, None
@@ -222,6 +225,66 @@ Respond ONLY with a JSON object:
         response = (
             f"Bilkul! Main '{topic}' explain karta hoon 📚\n\n"
             f"Explanation aa rahi hai... ⏳"
+        )
+        state.context.append({'role': 'assistant', 'message': response, 'command': command})
+        self.clear_state(chat_id, user_id)
+        
+        return (response, command)
+    
+    async def _handle_jee_quiz_request(self, message: str, extracted: Dict, state: ConversationState, chat_id: int, user_id: int) -> Tuple[str, Optional[str]]:
+        """Handle request for JEE quiz."""
+        state.intent = 'jee_quiz'
+        state.context.append({'role': 'user', 'message': message})
+        
+        chapter = extracted.get('chapter') or state.chapter
+        num_questions_raw = extracted.get('num_questions') or state.num_questions
+        
+        # Parse and validate num_questions
+        num_questions = None
+        if num_questions_raw:
+            try:
+                if isinstance(num_questions_raw, str):
+                    num_match = re.search(r'\d+', num_questions_raw)
+                    if num_match:
+                        num_questions = int(num_match.group())
+                else:
+                    num_questions = int(num_questions_raw)
+            except (ValueError, AttributeError):
+                num_questions = None
+        
+        if not chapter:
+            state.awaiting_input = 'jee_chapter'
+            response = (
+                "JEE quiz lagata hoon! 🎯\n\n"
+                "Kis chapter ka JEE level quiz chahiye?\n"
+                "Example: Mechanics, Thermodynamics, Calculus\n\n"
+                "Chapter batao! 📖"
+            )
+            state.context.append({'role': 'assistant', 'message': response})
+            return (response, None)
+        
+        if not num_questions or num_questions < 1 or num_questions > 50:
+            state.awaiting_input = 'jee_num_questions'
+            state.chapter = chapter
+            response = (
+                f"Perfect! {chapter} ka JEE quiz lagata hoon 🚀\n\n"
+                "Kitne questions chahiye? (1-50 ke beech)\n"
+                "Example: 10, 15, 20\n\n"
+                "Number batao! 🔢"
+            )
+            state.context.append({'role': 'assistant', 'message': response})
+            return (response, None)
+        
+        state.chapter = chapter
+        state.num_questions = num_questions
+        command = f"/jeequiz {chapter} {num_questions}"
+        
+        response = (
+            f"JEE quiz start ho raha hai! 🎯\n\n"
+            f"📚 Chapter: {chapter}\n"
+            f"📝 Questions: {num_questions}\n"
+            f"🎯 90% Mains + 10% Advanced\n\n"
+            f"Quiz loading... ⏳"
         )
         state.context.append({'role': 'assistant', 'message': response, 'command': command})
         self.clear_state(chat_id, user_id)
@@ -333,6 +396,45 @@ Response:"""
             state.topic = message.strip()
             state.context.append({'role': 'user', 'message': message})
             return await self._handle_explanation_request(message, {}, state, chat_id, user_id)
+        
+        elif awaiting == 'jee_chapter':
+            state.chapter = message.strip()
+            state.context.append({'role': 'user', 'message': message})
+            return await self._handle_jee_quiz_request(message, {}, state, chat_id, user_id)
+        
+        elif awaiting == 'jee_num_questions':
+            num_match = re.search(r'\d+', message)
+            if not num_match:
+                state.awaiting_input = 'jee_num_questions'
+                response = (
+                    "Mujhe ek number chahiye (1-50 ke beech) 🔢\n"
+                    "Example: 15"
+                )
+                state.context.append({'role': 'assistant', 'message': response})
+                return (response, None)
+            
+            try:
+                num = int(num_match.group())
+                if 1 <= num <= 50:
+                    state.num_questions = num
+                    state.context.append({'role': 'user', 'message': message})
+                    return await self._handle_jee_quiz_request(message, {}, state, chat_id, user_id)
+                else:
+                    state.awaiting_input = 'jee_num_questions'
+                    response = (
+                        "Please 1 se 50 ke beech number batao! 😊\n"
+                        "Example: 10, 20, 30"
+                    )
+                    state.context.append({'role': 'assistant', 'message': response})
+                    return (response, None)
+            except (ValueError, AttributeError):
+                state.awaiting_input = 'jee_num_questions'
+                response = (
+                    "Mujhe ek valid number chahiye (1-50 ke beech) 🔢\n"
+                    "Example: 15"
+                )
+                state.context.append({'role': 'assistant', 'message': response})
+                return (response, None)
         
         return await self._handle_general_chat(message, state)
 

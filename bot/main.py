@@ -3219,6 +3219,8 @@ async def conversational_message_handler(update: Update, context: ContextTypes.D
             
             if command.startswith('/cquiz'):
                 await create_quiz(update, context)
+            elif command.startswith('/jeequiz'):
+                await create_jee_quiz(update, context)
             elif command.startswith('/quiz'):
                 await timed_quiz_command(update, context)
             elif command.startswith('/stopquiz'):
