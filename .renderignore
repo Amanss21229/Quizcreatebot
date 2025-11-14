@@ -1,0 +1,5 @@
+pyproject.toml.backup
+uv.lock
+.replit
+replit.nix
+.pythonlibs/
