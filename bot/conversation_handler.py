@@ -3,12 +3,10 @@ import json
 import re
 import asyncio
 from typing import Dict, Optional, Tuple, List
-import google.generativeai as genai
-from bot.config import GOOGLE_API_KEY
+from groq import Groq
+from bot.config import GROQ_API_KEY
 
 logger = logging.getLogger(__name__)
-
-genai.configure(api_key=GOOGLE_API_KEY)
 
 class ConversationState:
     def __init__(self):
@@ -48,7 +46,8 @@ class ConversationState:
 
 class ConversationAI:
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        self.client = Groq(api_key=GROQ_API_KEY)
+        self.model = "llama3-70b-8192"
         self.conversation_states: Dict[Tuple[int, int], ConversationState] = {}
     
     def _get_state_key(self, chat_id: int, user_id: int) -> Tuple[int, int]:
@@ -97,8 +96,18 @@ Respond ONLY with a JSON object:
         
         try:
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(None, self.model.generate_content, prompt)
-            result_text = response.text.strip()
+            
+            def generate_groq_response():
+                chat_completion = self.client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.model,
+                    temperature=0.5,
+                    max_tokens=1024
+                )
+                return chat_completion.choices[0].message.content
+            
+            result_text = await loop.run_in_executor(None, generate_groq_response)
+            result_text = result_text.strip()
             
             json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
             if json_match:
@@ -338,8 +347,18 @@ Response:"""
         
         try:
             loop = asyncio.get_event_loop()
-            ai_response = await loop.run_in_executor(None, self.model.generate_content, prompt)
-            response = ai_response.text.strip()
+            
+            def generate_groq_chat_response():
+                chat_completion = self.client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.model,
+                    temperature=0.7,
+                    max_tokens=512
+                )
+                return chat_completion.choices[0].message.content
+            
+            response = await loop.run_in_executor(None, generate_groq_chat_response)
+            response = response.strip()
             state.context.append({'role': 'assistant', 'message': response})
             return response, None
         except:

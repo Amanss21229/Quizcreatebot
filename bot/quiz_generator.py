@@ -1,16 +1,16 @@
-import google.generativeai as genai
+from groq import Groq
 from typing import List, Dict
 import json
 import re
 import logging
-from bot.config import GOOGLE_API_KEY, WATERMARK
+from bot.config import GROQ_API_KEY, WATERMARK
 
-genai.configure(api_key=GOOGLE_API_KEY)
 logger = logging.getLogger(__name__)
 
 class QuizGenerator:
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        self.client = Groq(api_key=GROQ_API_KEY)
+        self.model = "llama3-70b-8192"
     
     def generate_quiz(self, chapter: str, num_questions: int, language: str = 'english') -> List[Dict]:
         """
@@ -27,8 +27,14 @@ class QuizGenerator:
         prompt = self._create_prompt(chapter, num_questions, language)
         
         try:
-            response = self.model.generate_content(prompt)
-            questions = self._parse_response(response.text, num_questions)
+            chat_completion = self.client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.model,
+                temperature=0.7,
+                max_tokens=4096
+            )
+            response_text = chat_completion.choices[0].message.content
+            questions = self._parse_response(response_text, num_questions)
             return questions
         except Exception as e:
             import logging
@@ -176,8 +182,13 @@ OUTPUT REQUIREMENTS:
 Generate the translated JSON now:"""
         
         try:
-            response = self.model.generate_content(prompt)
-            response_text = response.text.strip()
+            chat_completion = self.client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.model,
+                temperature=0.5,
+                max_tokens=4096
+            )
+            response_text = chat_completion.choices[0].message.content.strip()
             
             # Parse the translated questions
             json_match = re.search(r'\[[\s\S]*\]', response_text)
@@ -255,8 +266,13 @@ OUTPUT RULES:
 - No technical formatting symbols"""
         
         try:
-            response = self.model.generate_content(prompt)
-            raw_explanation = response.text.strip()
+            chat_completion = self.client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.model,
+                temperature=0.5,
+                max_tokens=2048
+            )
+            raw_explanation = chat_completion.choices[0].message.content.strip()
             
             # Clean up unwanted symbols
             cleaned_explanation = self._clean_explanation(raw_explanation)
@@ -307,8 +323,14 @@ OUTPUT RULES:
         prompt = self._create_jee_prompt(chapter, num_questions, language)
         
         try:
-            response = self.model.generate_content(prompt)
-            questions = self._parse_jee_response(response.text, num_questions)
+            chat_completion = self.client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.model,
+                temperature=0.7,
+                max_tokens=4096
+            )
+            response_text = chat_completion.choices[0].message.content
+            questions = self._parse_jee_response(response_text, num_questions)
             return questions
         except Exception as e:
             import logging
