@@ -1,6 +1,6 @@
 # NEET Quizzing Bot 🎓
 
-A Telegram bot that generates NEET-relevant medical entrance exam questions from NCERT Class 11th and 12th textbooks using Google's Gemini AI.
+A Telegram bot that generates NEET-relevant medical entrance exam questions from NCERT Class 11th and 12th textbooks using Groq's LLaMA 3 70B model.
 
 ## Features
 
@@ -9,7 +9,7 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 - ✅ Telegram native quiz format with correct answers
 - 🔖 Custom watermark: 【~@DrQuizRobot】
 - 📊 1-20 questions per quiz
-- ⚡ Powered by Google Gemini AI
+- ⚡ Powered by Groq AI (LLaMA 3 70B 8192)
 
 ## Usage
 
@@ -34,7 +34,7 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 - Python 3.11+
 - Telegram Bot Token (from [@BotFather](https://t.me/botfather))
-- Google API Key (for Gemini AI)
+- Groq API Key (for LLaMA 3 AI)
 
 ### Local Development
 
@@ -57,7 +57,7 @@ cp .env.example .env
 4. Add your API keys to `.env`:
 ```env
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-GOOGLE_API_KEY=your_google_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
 5. Run the bot:
@@ -74,7 +74,7 @@ python -m bot.main
 3. Render will automatically detect `render.yaml`
 4. Add environment variables in Render dashboard:
    - `TELEGRAM_BOT_TOKEN`
-   - `GOOGLE_API_KEY`
+   - `GROQ_API_KEY`
 5. Deploy!
 
 ### Method 2: Manual Setup
@@ -87,7 +87,7 @@ python -m bot.main
    - **Start Command**: `python -m bot.main`
 4. Add environment variables:
    - `TELEGRAM_BOT_TOKEN`
-   - `GOOGLE_API_KEY`
+   - `GROQ_API_KEY`
 5. Deploy!
 
 ## Getting API Keys
@@ -99,11 +99,12 @@ python -m bot.main
 3. Follow the instructions to create your bot
 4. Copy the bot token provided
 
-### Google Gemini API Key
+### Groq API Key
 
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Click "Create API Key"
-3. Copy the generated API key
+1. Go to [Groq Console](https://console.groq.com/keys)
+2. Sign up or login
+3. Click "Create API Key"
+4. Copy the generated API key
 
 ## Project Structure
 
@@ -113,7 +114,7 @@ python -m bot.main
 │   ├── __init__.py
 │   ├── config.py          # Configuration and environment variables
 │   ├── main.py            # Main bot logic and command handlers
-│   └── quiz_generator.py  # Quiz generation using Gemini AI
+│   └── quiz_generator.py  # Quiz generation using Groq AI
 ├── .env.example           # Example environment variables
 ├── render.yaml            # Render deployment configuration
 ├── requirements.txt       # Python dependencies

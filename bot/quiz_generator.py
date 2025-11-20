@@ -43,7 +43,7 @@ class QuizGenerator:
             raise
     
     def _create_prompt(self, chapter: str, num_questions: int, language: str = 'english') -> str:
-        """Create a detailed prompt for Gemini to generate NEET-level MCQs."""
+        """Create a detailed prompt for Groq to generate NEET-level MCQs."""
         
         language_instruction = ""
         if language == 'hindi':
@@ -115,7 +115,7 @@ STRICT FORMATTING RULES:
 Generate exactly {num_questions} questions now in valid JSON format."""
     
     def _parse_response(self, response_text: str, expected_count: int) -> List[Dict]:
-        """Parse Gemini's response and extract quiz questions."""
+        """Parse Groq's response and extract quiz questions."""
         try:
             json_match = re.search(r'\[[\s\S]*\]', response_text)
             if json_match:
@@ -339,7 +339,7 @@ OUTPUT RULES:
             raise
     
     def _create_jee_prompt(self, chapter: str, num_questions: int, language: str = 'english') -> str:
-        """Create a detailed prompt for Gemini to generate JEE-level MCQs with metadata."""
+        """Create a detailed prompt for Groq to generate JEE-level MCQs with metadata."""
         
         language_instruction = ""
         if language == 'hindi':

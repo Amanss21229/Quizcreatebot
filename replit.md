@@ -2,7 +2,7 @@
 
 ## Overview
 
-A Telegram bot designed to generate NEET-relevant medical entrance exam questions from NCERT Class 11th and 12th textbooks. Utilizing Google's Gemini AI, the bot creates native Telegram quiz polls with multiple-choice questions covering Biology, Physics, and Chemistry, tailored to medical entrance exam standards. The project aims to provide an efficient and interactive study tool for NEET aspirants.
+A Telegram bot designed to generate NEET-relevant medical entrance exam questions from NCERT Class 11th and 12th textbooks. Utilizing Groq's LLaMA 3 70B model, the bot creates native Telegram quiz polls with multiple-choice questions covering Biology, Physics, and Chemistry, tailored to medical entrance exam standards. The project aims to provide an efficient and interactive study tool for NEET aspirants.
 
 ## User Preferences
 
@@ -18,7 +18,7 @@ Preferred communication style: Simple, everyday language.
 
 **Core Components**:
 
-- **Quiz Generation Engine** (`quiz_generator.py`): Employs Google Gemini 2.5 Flash for AI-powered question generation, supporting:
+- **Quiz Generation Engine** (`quiz_generator.py`): Employs Groq AI (LLaMA 3 70B 8192) for AI-powered question generation, supporting:
   - **NEET Quizzes**: Bilingual output (English/Hindi), NEET-standard MCQs from NCERT and PYQs
   - **JEE Quizzes**: Chapter-based questions with 90% JEE Mains and 10% JEE Advanced level distribution, sourced from NCERT, JEE PYQs (2015-2024), HC Verma, DC Pandey, and RD Sharma. Each question includes metadata showing difficulty level and source with strict validation and auto-correction to ensure proper distribution.
 - **Admin Management** (`admin_manager.py`): Manages permanent and dynamic bot administrators with persistent storage.
@@ -45,7 +45,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Configuration Management
 
-**Environment Variables**: Sensitive credentials (e.g., `TELEGRAM_BOT_TOKEN`, `GOOGLE_API_KEY`, `ADMIN_USER_IDS`) are managed via `.env` files.
+**Environment Variables**: Sensitive credentials (e.g., `TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`, `ADMIN_USER_IDS`) are managed via `.env` files.
 
 **Static Configuration** (`config.py`): Contains quiz parameters (e.g., `MIN_QUESTIONS`, `MAX_QUESTIONS`), watermark text, and permanent admin user IDs.
 
@@ -71,13 +71,13 @@ The workflow involves user command parsing, force join verification, input valid
 
 ### Third-Party APIs
 
-- **Google Gemini AI** (`google-generativeai`): Used for generating NEET-standard MCQ questions and explanations.
+- **Groq AI** (`groq`): Used for generating NEET-standard MCQ questions and explanations with LLaMA 3 70B model.
 - **Telegram Bot API** (`python-telegram-bot`): Provides the core interface for bot operations, including command handling, poll creation, and group administration.
 
 ### Python Dependencies
 
 - `python-telegram-bot`: The primary framework for Telegram bot development.
-- `google-generativeai`: SDK for interacting with Google Gemini AI.
+- `groq`: SDK for interacting with Groq AI (LLaMA 3 70B 8192).
 - `python-dotenv`: For managing environment variables.
 - `APScheduler`: For scheduling recurring tasks like daily good morning messages.
 - Standard Python libraries: `json`, `logging`, `datetime`, `pathlib`, `re`, `uuid`, `time`.

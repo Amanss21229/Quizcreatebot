@@ -2,7 +2,7 @@
 
 ## 🎉 Project Complete!
 
-Your Telegram bot has been successfully built using **Python** and **Google Gemini API** as requested.
+Your Telegram bot has been successfully built using **Python** and **Groq AI (LLaMA 3 70B)** as requested.
 
 ---
 
@@ -16,7 +16,7 @@ Your Telegram bot has been successfully built using **Python** and **Google Gemi
 ✅ **Watermark Formatting** - 【~@DrQuizRobot】 on every question
 ✅ **Telegram Quizzes** - Native poll format with correct answers marked
 ✅ **Input Validation** - 1-20 questions range, error handling
-✅ **Google Gemini 2.5 Flash** - Latest AI model for quiz generation
+✅ **Groq AI (LLaMA 3 70B 8192)** - Fast and powerful AI model for quiz generation
 
 ### Project Structure
 ```
@@ -25,7 +25,7 @@ Your Telegram bot has been successfully built using **Python** and **Google Gemi
 │   ├── __init__.py           # Package initialization
 │   ├── config.py             # Environment variables & settings
 │   ├── main.py               # Telegram bot handlers
-│   └── quiz_generator.py     # Gemini AI quiz generation
+│   └── quiz_generator.py     # Groq AI quiz generation
 ├── .env.example              # Template for environment variables
 ├── render.yaml               # Render deployment config
 ├── README.md                 # Main documentation
@@ -68,7 +68,7 @@ git push -u origin main
    - Render will auto-detect `render.yaml`
    - Add environment variables:
      - `TELEGRAM_BOT_TOKEN` (your bot token)
-     - `GOOGLE_API_KEY` (your Gemini API key)
+     - `GROQ_API_KEY` (your Groq API key)
    - Click "Create Web Service"
    - Wait 2-5 minutes for deployment
 
@@ -83,7 +83,7 @@ git push -u origin main
 
 Your environment already has these secrets set:
 - ✅ `TELEGRAM_BOT_TOKEN`
-- ✅ `GOOGLE_API_KEY`
+- ✅ `GROQ_API_KEY`
 
 **For Render deployment**, you'll need to add these same values in the Render dashboard under "Environment" tab.
 
@@ -101,7 +101,7 @@ Your environment already has these secrets set:
 
 All components tested and working:
 - ✅ Configuration loading
-- ✅ Google Gemini 2.5 Flash API integration
+- ✅ Groq AI (LLaMA 3 70B) API integration
 - ✅ Quiz generation (tested with 3 questions)
 - ✅ Question structure validation (4 options, correct answer marking)
 - ✅ Watermark formatting: 【~@DrQuizRobot】
@@ -139,7 +139,7 @@ All components tested and working:
 When a user sends `/cquiz Cell Biology 5`, the bot will:
 
 1. **Acknowledge** the request
-2. **Generate** 5 NEET-level questions using Gemini AI
+2. **Generate** 5 NEET-level questions using Groq AI
 3. **Send** each as a Telegram quiz poll:
    ```
    1. [Question text]
@@ -159,11 +159,11 @@ When a user sends `/cquiz Cell Biology 5`, the bot will:
 
 - **Language**: Python 3.11
 - **Bot Framework**: python-telegram-bot v22.5
-- **AI Model**: Google Gemini 2.5 Flash
+- **AI Model**: Groq AI (LLaMA 3 70B 8192)
 - **Deployment**: Render (or any Python hosting)
 - **Dependencies**: 
   - `python-telegram-bot` - Telegram integration
-  - `google-generativeai` - Gemini AI API
+  - `groq` - Groq AI API
   - `python-dotenv` - Environment variable management
 
 ---
