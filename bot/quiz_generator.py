@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class QuizGenerator:
     def __init__(self):
         self.client = Groq(api_key=GROQ_API_KEY)
-        self.model = "llama3-70b-8192"
+        self.model = "llama-3.3-70b-versatile"
     
     def generate_quiz(self, chapter: str, num_questions: int, language: str = 'english') -> List[Dict]:
         """
