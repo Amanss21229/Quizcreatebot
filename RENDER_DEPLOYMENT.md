@@ -27,12 +27,11 @@ Environment Variables section me ye add karo:
 
 ```
 TELEGRAM_BOT_TOKEN = <your_telegram_bot_token>
-GEMINI_API_KEY = <your_gemini_api_key>
-GOOGLE_API_KEY = <your_gemini_api_key>
+GROQ_API_KEY = <your_groq_api_key>
 DATABASE_URL = <internal_database_url_from_step_1>
 ```
 
-**Note**: `GEMINI_API_KEY` aur `GOOGLE_API_KEY` dono same value set karo (bot config dono check karta hai for backward compatibility).
+**Note**: Groq API key [Groq Console](https://console.groq.com/keys) se milega.
 
 **Important**: Render automatically `PORT` environment variable provide karta hai, manually add karne ki zarurat nahi hai.
 

@@ -2,7 +2,7 @@
 
 ## 🎉 Project Complete!
 
-Your Telegram bot has been successfully built using **Python** and **Groq AI (LLaMA 3 70B)** as requested.
+Your Telegram bot has been successfully built using **Python** and **Groq AI (LLaMA 3.3 70B Versatile)** as requested.
 
 ---
 
@@ -16,7 +16,7 @@ Your Telegram bot has been successfully built using **Python** and **Groq AI (LL
 ✅ **Watermark Formatting** - 【~@DrQuizRobot】 on every question
 ✅ **Telegram Quizzes** - Native poll format with correct answers marked
 ✅ **Input Validation** - 1-20 questions range, error handling
-✅ **Groq AI (LLaMA 3 70B 8192)** - Fast and powerful AI model for quiz generation
+✅ **Groq AI (LLaMA 3.3 70B Versatile)** - Fast and powerful AI model for quiz generation
 
 ### Project Structure
 ```
@@ -159,7 +159,7 @@ When a user sends `/cquiz Cell Biology 5`, the bot will:
 
 - **Language**: Python 3.11
 - **Bot Framework**: python-telegram-bot v22.5
-- **AI Model**: Groq AI (LLaMA 3 70B 8192)
+- **AI Model**: Groq AI (LLaMA 3.3 70B Versatile)
 - **Deployment**: Render (or any Python hosting)
 - **Dependencies**: 
   - `python-telegram-bot` - Telegram integration

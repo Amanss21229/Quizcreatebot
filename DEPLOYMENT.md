@@ -5,7 +5,7 @@ This guide covers how to deploy your Telegram bot to Render.com or any other Pyt
 
 ## Prerequisites
 - A Telegram Bot Token (from [@BotFather](https://t.me/botfather))
-- A Google Gemini API Key (from [Google AI Studio](https://makersuite.google.com/app/apikey))
+- A Groq API Key (from [Groq Console](https://console.groq.com/keys))
 - A GitHub account (to push your code)
 - A Render account (free tier available at [render.com](https://render.com))
 
@@ -44,7 +44,7 @@ git push -u origin main
    - Add the following secrets:
      ```
      TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-     GOOGLE_API_KEY=your_google_gemini_api_key_here
+     GROQ_API_KEY=your_groq_api_key_here
      ```
 
 4. **Deploy**:
@@ -66,7 +66,7 @@ git push -u origin main
 3. **Add Environment Variables**:
    ```
    TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-   GOOGLE_API_KEY=your_google_gemini_api_key_here
+   GROQ_API_KEY=your_groq_api_key_here
    ```
    **Note**: Render automatically sets the PORT environment variable, so you don't need to add it manually.
 
@@ -98,7 +98,7 @@ git push -u origin main
 3. Add environment variables:
    ```
    TELEGRAM_BOT_TOKEN=your_token
-   GOOGLE_API_KEY=your_key
+   GROQ_API_KEY=your_key
    ```
 4. Deploy with: `railway up`
 
@@ -113,7 +113,7 @@ git push -u origin main
    ```bash
    heroku create your-bot-name
    heroku config:set TELEGRAM_BOT_TOKEN=your_token
-   heroku config:set GOOGLE_API_KEY=your_key
+   heroku config:set GROQ_API_KEY=your_key
    git push heroku main
    heroku ps:scale worker=1
    ```
@@ -140,7 +140,7 @@ Use the included `render.yaml` as reference and adapt for Cloud Run configuratio
 
 ### "Model not found" error
 - Ensure your Google API key is valid
-- Check that you have access to Gemini models
+- Check that you have access to Groq models
 - Verify the model name in `bot/quiz_generator.py`
 
 ### Questions not generating
@@ -189,7 +189,7 @@ When you make changes to the code:
 
 ### Free Tier Limits
 - **Render**: 750 hours/month (enough for one always-on service)
-- **Google Gemini**: Generous free tier (check current limits)
+- **Groq AI**: Generous free tier (check current limits at https://console.groq.com/)
 - **Telegram**: Free, no limits
 
 ### Optimization Tips

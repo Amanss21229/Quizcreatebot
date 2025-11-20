@@ -1,6 +1,6 @@
 # NEET Quizzing Bot 🎓
 
-A Telegram bot that generates NEET-relevant medical entrance exam questions from NCERT Class 11th and 12th textbooks using Groq's LLaMA 3 70B model.
+A Telegram bot that generates NEET-relevant medical entrance exam questions from NCERT Class 11th and 12th textbooks using Groq's LLaMA 3.3 70B Versatile model.
 
 ## Features
 
@@ -9,7 +9,7 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 - ✅ Telegram native quiz format with correct answers
 - 🔖 Custom watermark: 【~@DrQuizRobot】
 - 📊 1-20 questions per quiz
-- ⚡ Powered by Groq AI (LLaMA 3 70B 8192)
+- ⚡ Powered by Groq AI (LLaMA 3.3 70B Versatile)
 
 ## Usage
 
@@ -34,7 +34,7 @@ A Telegram bot that generates NEET-relevant medical entrance exam questions from
 
 - Python 3.11+
 - Telegram Bot Token (from [@BotFather](https://t.me/botfather))
-- Groq API Key (for LLaMA 3 AI)
+- Groq API Key (for LLaMA 3.3 AI)
 
 ### Local Development
 
@@ -125,7 +125,7 @@ python -m bot.main
 
 1. User sends `/cquiz [chapter] [number]` command
 2. Bot validates the input (1-20 questions)
-3. Gemini AI generates NEET-level MCQs based on the chapter
+3. Groq AI (LLaMA 3.3 70B Versatile) generates NEET-level MCQs based on the chapter
 4. Questions are sent as Telegram polls/quizzes
 5. Each question includes the watermark 【~@DrQuizRobot】
 6. Correct answers are marked in the quiz format
@@ -133,7 +133,7 @@ python -m bot.main
 ## Technical Details
 
 - **Bot Framework**: python-telegram-bot (v22.5)
-- **AI Model**: Google Gemini 2.5 Flash
+- **AI Model**: Groq AI (LLaMA 3.3 70B Versatile)
 - **Language**: Python 3.11
 - **Deployment**: Render (or any Python hosting platform)
 

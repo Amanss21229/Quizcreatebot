@@ -448,7 +448,7 @@ STRICT FORMATTING RULES:
 Generate exactly {num_questions} questions now in valid JSON format with proper metadata."""
     
     def _parse_jee_response(self, response_text: str, expected_count: int) -> List[Dict]:
-        """Parse Gemini's response for JEE questions and extract metadata with strict validation."""
+        """Parse Groq's response for JEE questions and extract metadata with strict validation."""
         try:
             json_match = re.search(r'\[[\s\S]*\]', response_text)
             if json_match:
