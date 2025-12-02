@@ -42,6 +42,7 @@ Preferred communication style: Simple, everyday language.
 - `data/tagall_permissions.json`: Per-group tagall permissions.
 - `data/tracked_members.json`: Member tracking database for the tagall feature.
 - `data/welcome_groups.json`: Groups with enabled welcome messages.
+- `data/question_history.json`: 24-hour question deduplication tracking (auto-cleaned).
 
 ### Configuration Management
 
@@ -52,6 +53,11 @@ Preferred communication style: Simple, everyday language.
 ### Quiz Generation Workflow
 
 The workflow involves user command parsing, force join verification, input validation, language detection, LLM prompt construction, Groq API call for structured JSON, response parsing, Telegram native poll creation, and statistics updates. Quizzes support NEET scoring (+4 for correct, -1 for wrong, 0 for unattempted).
+
+**Question Quality Assurance**:
+- **Triple Verification System**: Each generated question is verified 3 times by AI before being sent to ensure 100% accuracy (correct question, correct options, correct answer). Questions that fail any verification attempt are rejected and regenerated.
+- **24-Hour Deduplication**: Questions are tracked via hash in `data/question_history.json` and won't be repeated within 24 hours, ensuring fresh content for every quiz session.
+- **Batch Regeneration**: If questions fail verification or are duplicates, the system automatically requests additional questions until the required count is met.
 
 **Quiz Types**:
 - **NEET Quizzes** (`/cquiz`, `/quiz`): Medical entrance exam questions from NCERT and NEET PYQs
