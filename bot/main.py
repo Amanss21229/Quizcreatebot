@@ -1171,6 +1171,17 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         option_id = option_ids[0]
         
+        if challenge_manager.active_challenge and poll_id in challenge_manager.active_challenge.poll_correct_options:
+            challenge_manager.record_poll_answer(
+                poll_id=poll_id,
+                user_id=user.id,
+                first_name=user.first_name or "User",
+                username=user.username,
+                selected_option=option_id
+            )
+            logger.info(f"[CHALLENGE] Recorded answer from {user.first_name} (ID: {user.id}), option: {option_id}")
+            return
+        
         if poll_id in live_quiz_coordinator.poll_to_question_map:
             session_id, question_idx, group_id = live_quiz_coordinator.poll_to_question_map[poll_id]
             live_session = live_quiz_coordinator.active_session
@@ -2102,6 +2113,7 @@ async def start_challenge_quiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
     try:
         challenge.state = ChallengeState.RUNNING
         challenge.quiz_start_time = datetime.now()
+        challenge.chat_id = chat_id
         
         await asyncio.sleep(60)
         
@@ -2134,15 +2146,12 @@ async def start_challenge_quiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
             await challenge_manager.complete_current_challenge()
             return
         
-        level_tag = f"\n\n📊 <i>Level: {challenge.quiz_type.upper()}</i>"
-        
-        participants = {}
-        poll_correct_options = {}
+        level_tag = f"\n\n📊 Level: {challenge.quiz_type.upper()}"
         
         for i, q in enumerate(questions):
             question_text = q.get('question', 'Question')
             options = q.get('options', ['A', 'B', 'C', 'D'])
-            correct_idx = q.get('correct_answer', 0)
+            correct_idx = int(q.get('correct_answer', 0))
             
             question_with_level = f"Q{i+1}. {question_text}{level_tag}"
             
@@ -2157,10 +2166,8 @@ async def start_challenge_quiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
                     is_anonymous=False
                 )
                 
-                poll_correct_options[poll.poll.id] = {
-                    'correct_option': correct_idx,
-                    'challenge_id': challenge.challenge_id
-                }
+                challenge_manager.register_poll(poll.poll.id, correct_idx)
+                challenge.questions_sent += 1
                 
             except Exception as e:
                 logger.error(f"Error sending poll: {e}")
@@ -2169,7 +2176,8 @@ async def start_challenge_quiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
         
         await asyncio.sleep(2)
         
-        leaderboard_message = challenge_manager.get_leaderboard_message([], challenge)
+        sorted_participants = challenge_manager.get_sorted_participants(challenge)
+        leaderboard_message = challenge_manager.get_leaderboard_message(sorted_participants, challenge)
         await context.bot.send_message(
             chat_id=chat_id,
             text=leaderboard_message,

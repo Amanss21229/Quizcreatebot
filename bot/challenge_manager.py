@@ -22,6 +22,19 @@ class ChallengeState(Enum):
     COMPLETED = "completed"
 
 @dataclass
+class ChallengeParticipant:
+    user_id: int
+    first_name: str
+    username: Optional[str]
+    correct: int = 0
+    wrong: int = 0
+    unattempted: int = 0
+    
+    @property
+    def score(self) -> int:
+        return (self.correct * 4) - (self.wrong * 1)
+
+@dataclass
 class ChallengeSession:
     challenge_id: str
     chapter: str
@@ -37,6 +50,10 @@ class ChallengeSession:
     question_count: int = 15
     countdown_task: Optional[asyncio.Task] = None
     quiz_start_time: Optional[datetime] = None
+    chat_id: Optional[int] = None
+    participants: Dict[int, 'ChallengeParticipant'] = field(default_factory=dict)
+    poll_correct_options: Dict[str, int] = field(default_factory=dict)
+    questions_sent: int = 0
 
 class ChallengeManager:
     def __init__(self):
@@ -240,7 +257,7 @@ class ChallengeManager:
             return (
                 "📊 <b>CHALLENGE LEADERBOARD</b> 📊\n\n"
                 "😔 No participants in this challenge.\n\n"
-                "💡 <i>Use /challenge to start a new challenge!</i>"
+                "💡 <i>Want to challenge your friends? Use /challenge command!</i>"
             )
         
         message = "🏆 <b>CHALLENGE LEADERBOARD</b> 🏆\n\n"
@@ -265,5 +282,57 @@ class ChallengeManager:
         message += "💡 <i>Want to challenge your friends? Use /challenge command!</i>"
         
         return message
+    
+    def record_poll_answer(self, poll_id: str, user_id: int, first_name: str, 
+                           username: Optional[str], selected_option: int):
+        """Record a poll answer for the active challenge."""
+        if not self.active_challenge:
+            return
+        
+        challenge = self.active_challenge
+        
+        if poll_id not in challenge.poll_correct_options:
+            return
+        
+        correct_option = challenge.poll_correct_options[poll_id]
+        
+        if user_id not in challenge.participants:
+            challenge.participants[user_id] = ChallengeParticipant(
+                user_id=user_id,
+                first_name=first_name,
+                username=username
+            )
+        
+        participant = challenge.participants[user_id]
+        
+        if selected_option == correct_option:
+            participant.correct += 1
+        else:
+            participant.wrong += 1
+    
+    def register_poll(self, poll_id: str, correct_option: int):
+        """Register a poll with its correct option."""
+        if self.active_challenge:
+            self.active_challenge.poll_correct_options[poll_id] = correct_option
+    
+    def get_sorted_participants(self, challenge: ChallengeSession) -> List[dict]:
+        """Get sorted participants by score."""
+        participants_list = []
+        total_questions = challenge.questions_sent
+        
+        for p in challenge.participants.values():
+            p.unattempted = total_questions - (p.correct + p.wrong)
+            participants_list.append({
+                'user_id': p.user_id,
+                'name': p.first_name,
+                'username': p.username,
+                'score': p.score,
+                'correct': p.correct,
+                'wrong': p.wrong,
+                'unattempted': p.unattempted
+            })
+        
+        participants_list.sort(key=lambda x: (-x['score'], x['name']))
+        return participants_list
 
 challenge_manager = ChallengeManager()

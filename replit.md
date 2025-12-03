@@ -31,6 +31,15 @@ Preferred communication style: Simple, everyday language.
 - **Good Morning Wishes** (`good_morning_manager.py`): Automated daily motivational messages broadcast to all users and groups, with bilingual support and elegant formatting.
 - **Quiz Lock Manager** (`quiz_lock_manager.py`): Ensures mutual exclusion, allowing only one quiz per group/chat at a time.
 - **Global Live Quiz System** (`live_quiz_manager.py`): Facilitates synchronized quizzes across all groups simultaneously, including countdowns, real-time tracking, and a unified global leaderboard with NEET scoring. Admins can now select question count (10, 15, 20, 25, 30, 35, 40, 45, or 50) and time per question (15s, 30s, 45s, or 60s) via inline keyboard buttons.
+- **Challenge System** (`challenge_manager.py`): Social quiz challenge feature allowing users to challenge friends to competitive quizzes with:
+  - Challenge creation via `/challenge <chapter name>` command
+  - Inline sharing with motivational challenge messages
+  - Language selection (Hindi/English)
+  - Quiz type selection (NEET/JEE) with level displayed on each question
+  - Timer selection (15s, 30s, 45s, 60s per question)
+  - Challenge queue management for handling multiple concurrent challenges
+  - NEET scoring system (+4 correct, -1 wrong, 0 unattempted)
+  - Leaderboard with /challenge promotion at the end
 
 ### Data Persistence
 
