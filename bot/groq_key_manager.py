@@ -88,7 +88,7 @@ class GroqKeyManager:
             return self.clients[key]
         return None
     
-    def chat_completion(self, messages: list, temperature: float = 0.7, max_tokens: int = 4096) -> Optional[dict]:
+    def chat_completion(self, messages: list, temperature: float = 0.7, max_tokens: int = 4096):
         """
         Make a chat completion request with automatic key rotation.
         Tries all available keys before giving up.
@@ -98,6 +98,7 @@ class GroqKeyManager:
         
         while attempts < max_attempts:
             key = self._get_next_available_key()
+            key_index = self.api_keys.index(key) + 1 if key else 0
             
             if not key:
                 available_in = None
@@ -118,12 +119,14 @@ class GroqKeyManager:
             
             try:
                 client = self.clients[key]
+                logger.debug(f"Using API key #{key_index} ({key[:8]}...) for request")
                 response = client.chat.completions.create(
                     messages=messages,
                     model=self.model,
                     temperature=temperature,
                     max_tokens=max_tokens
                 )
+                logger.debug(f"Request successful with key #{key_index}")
                 return response
                 
             except RateLimitError as e:
