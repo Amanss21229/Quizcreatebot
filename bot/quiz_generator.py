@@ -1,4 +1,3 @@
-from groq import Groq
 from typing import List, Dict, Optional
 import json
 import re
@@ -7,7 +6,8 @@ import hashlib
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from bot.config import GROQ_API_KEY, WATERMARK
+from bot.config import WATERMARK
+from bot.groq_key_manager import groq_key_manager
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ question_history = QuestionHistoryManager()
 
 class QuizGenerator:
     def __init__(self):
-        self.client = Groq(api_key=GROQ_API_KEY)
+        self.key_manager = groq_key_manager
         self.model = "llama-3.3-70b-versatile"
         self.history_manager = question_history
         self.max_regeneration_attempts = 3
@@ -146,9 +146,8 @@ RESPOND WITH EXACTLY ONE WORD:
 Your response (one word only):"""
 
         try:
-            chat_completion = self.client.chat.completions.create(
+            chat_completion = self.key_manager.chat_completion(
                 messages=[{"role": "user", "content": verification_prompt}],
-                model=self.model,
                 temperature=0.1,
                 max_tokens=10
             )
@@ -208,9 +207,8 @@ Your response (one word only):"""
         """Generate raw questions without verification (internal use)."""
         prompt = self._create_prompt(chapter, num_questions, language)
         
-        chat_completion = self.client.chat.completions.create(
+        chat_completion = self.key_manager.chat_completion(
             messages=[{"role": "user", "content": prompt}],
-            model=self.model,
             temperature=0.7,
             max_tokens=4096
         )
@@ -406,30 +404,25 @@ OUTPUT REQUIREMENTS:
 Generate the translated JSON now:"""
         
         try:
-            chat_completion = self.client.chat.completions.create(
+            chat_completion = self.key_manager.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
-                model=self.model,
                 temperature=0.5,
                 max_tokens=4096
             )
             response_text = chat_completion.choices[0].message.content.strip()
             
-            # Parse the translated questions
             json_match = re.search(r'\[[\s\S]*\]', response_text)
             if json_match:
                 questions_hindi = json.loads(json_match.group())
             else:
                 questions_hindi = json.loads(response_text)
             
-            # Ensure correct_answer indices match
             for i, (eng_q, hin_q) in enumerate(zip(questions_english, questions_hindi)):
                 hin_q['correct_answer'] = eng_q['correct_answer']
             
             return questions_hindi
             
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"Error translating questions: {e}")
             logger.error(f"Falling back to English questions")
             return questions_english
@@ -490,22 +483,18 @@ OUTPUT RULES:
 - No technical formatting symbols"""
         
         try:
-            chat_completion = self.client.chat.completions.create(
+            chat_completion = self.key_manager.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
-                model=self.model,
                 temperature=0.5,
                 max_tokens=2048
             )
             raw_explanation = chat_completion.choices[0].message.content.strip()
             
-            # Clean up unwanted symbols
             cleaned_explanation = self._clean_explanation(raw_explanation)
             
             return cleaned_explanation
             
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
             logger.error(f"Error generating explanation: {e}")
             raise
     
@@ -536,9 +525,8 @@ OUTPUT RULES:
         """Generate raw JEE questions without verification (internal use)."""
         prompt = self._create_jee_prompt(chapter, num_questions, language)
         
-        chat_completion = self.client.chat.completions.create(
+        chat_completion = self.key_manager.chat_completion(
             messages=[{"role": "user", "content": prompt}],
-            model=self.model,
             temperature=0.7,
             max_tokens=4096
         )

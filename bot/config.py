@@ -12,6 +12,18 @@ if not TELEGRAM_BOT_TOKEN:
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY environment variable is required")
 
+def get_all_groq_keys():
+    """Get all available Groq API keys from environment."""
+    keys = []
+    primary = os.getenv('GROQ_API_KEY')
+    if primary:
+        keys.append(primary)
+    for i in range(2, 11):
+        key = os.getenv(f'GROQ_API_KEY_{i}')
+        if key:
+            keys.append(key)
+    return keys
+
 MIN_QUESTIONS = 1
 MAX_QUESTIONS = 20
 
