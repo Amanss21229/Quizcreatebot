@@ -13,3 +13,11 @@ groq
 psycopg2-binary
 python-dotenv
 python-telegram-bot
+aiohttp
+APScheduler
+asyncpg
+google-generativeai
+groq
+psycopg2-binary
+python-dotenv
+python-telegram-bot[job-queue]
