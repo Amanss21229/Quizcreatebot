@@ -46,9 +46,15 @@ Preferred communication style: Simple, everyday language.
 
 ### Configuration Management
 
-**Environment Variables**: Sensitive credentials (e.g., `TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`, `ADMIN_USER_IDS`) are managed via `.env` files.
+**Environment Variables**: Sensitive credentials (e.g., `TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`, `GROQ_API_KEY_2` through `GROQ_API_KEY_5`, `ADMIN_USER_IDS`) are managed via `.env` files or Replit Secrets.
 
 **Static Configuration** (`config.py`): Contains quiz parameters (e.g., `MIN_QUESTIONS`, `MAX_QUESTIONS`), watermark text, and permanent admin user IDs.
+
+**Multi-Key Rotation System** (`groq_key_manager.py`): Automatically rotates between multiple Groq API keys to avoid rate limits:
+- Supports up to 10 API keys (`GROQ_API_KEY`, `GROQ_API_KEY_2` through `GROQ_API_KEY_10`)
+- Automatically switches to next available key when rate limit is hit
+- Tracks rate-limited keys and waits for cooldown before reusing
+- Provides status reporting for all configured keys
 
 ### Quiz Generation Workflow
 
