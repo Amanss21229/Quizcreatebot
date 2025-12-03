@@ -6,7 +6,7 @@ import os
 from functools import wraps
 from datetime import datetime, time as dt_time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, PollAnswerHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, PollAnswerHandler, InlineQueryHandler, filters, ContextTypes
 from telegram.ext import ApplicationHandlerStop
 from bot.config import TELEGRAM_BOT_TOKEN, MIN_QUESTIONS, MAX_QUESTIONS, ADMIN_USER_IDS
 from aiohttp import web
@@ -26,6 +26,7 @@ from bot.quiz_lock_manager import quiz_lock_manager
 from bot.live_quiz_manager import live_quiz_coordinator
 from bot.database import db_pool, QuizSessionRepository
 from bot.conversation_handler import conversation_ai
+from bot.challenge_manager import challenge_manager
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -1945,6 +1946,259 @@ async def endlivequiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"Please try again or contact support."
         )
 
+async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start a challenge quiz with friends - /challenge <chapter name>"""
+    try:
+        if not context.args:
+            await update.message.reply_text(
+                "⚠️ <b>Usage:</b> /challenge &lt;chapter name&gt;\n\n"
+                "<b>Example:</b>\n"
+                "/challenge Human Physiology\n"
+                "/challenge Thermodynamics\n"
+                "/challenge Chemical Bonding\n\n"
+                "💡 Challenge your friends to a quiz battle!",
+                parse_mode='HTML'
+            )
+            return
+        
+        chapter = ' '.join(context.args)
+        user = update.effective_user
+        user_name = user.first_name or "Challenger"
+        username = user.username
+        
+        challenge = await challenge_manager.create_challenge(
+            user_id=user.id,
+            user_name=user_name,
+            username=username,
+            chapter=chapter
+        )
+        
+        is_running = await challenge_manager.is_challenge_running()
+        
+        if is_running:
+            queue_position = await challenge_manager.add_to_queue(challenge)
+            
+            await update.message.reply_text(
+                challenge_manager.get_quiz_busy_message() + 
+                f"\n\n📋 Your queue position: #{queue_position}",
+                parse_mode='HTML'
+            )
+        else:
+            await challenge_manager.add_to_queue(challenge)
+            
+            message, keyboard = challenge_manager.get_challenge_start_message(challenge)
+            await update.message.reply_text(
+                message,
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+        
+        logger.info(f"Challenge created: {challenge.challenge_id} by {user_name} for chapter: {chapter}")
+        
+    except Exception as e:
+        logger.error(f"Error in challenge command: {e}", exc_info=True)
+        await update.message.reply_text(
+            "❌ Error creating challenge. Please try again later."
+        )
+
+async def challenge_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline queries for sharing challenges."""
+    from telegram import InlineQueryResultArticle, InputTextMessageContent
+    
+    query = update.inline_query.query
+    
+    if not query.startswith("challenge_"):
+        return
+    
+    challenge_id = query.replace("challenge_", "")
+    challenge = challenge_manager.pending_challenges.get(challenge_id)
+    
+    if not challenge:
+        results = [
+            InlineQueryResultArticle(
+                id="expired",
+                title="Challenge Expired",
+                description="This challenge is no longer available",
+                input_message_content=InputTextMessageContent(
+                    message_text="⚠️ This challenge has expired or is not available."
+                )
+            )
+        ]
+    else:
+        message, keyboard = challenge_manager.get_challenge_share_message(challenge)
+        
+        results = [
+            InlineQueryResultArticle(
+                id=challenge_id,
+                title=f"🔥 Challenge: {challenge.chapter}",
+                description=f"From {challenge.challenger_name} - Tap to send challenge!",
+                input_message_content=InputTextMessageContent(
+                    message_text=message,
+                    parse_mode='HTML'
+                ),
+                reply_markup=keyboard
+            )
+        ]
+    
+    await update.inline_query.answer(results, cache_time=60)
+
+async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle challenge-related callback queries."""
+    query = update.callback_query
+    data = query.data
+    
+    try:
+        await query.answer()
+        
+        if data.startswith("challenge_lang_"):
+            language = data.replace("challenge_lang_", "")
+            
+            if challenge_manager.active_challenge:
+                challenge_manager.active_challenge.language = language
+                challenge_manager.active_challenge.state = challenge_manager.active_challenge.state
+                
+                message, keyboard = challenge_manager.get_quiz_type_selection_message()
+                await query.edit_message_text(
+                    text=message,
+                    reply_markup=keyboard,
+                    parse_mode='HTML'
+                )
+        
+        elif data.startswith("challenge_type_"):
+            quiz_type = data.replace("challenge_type_", "")
+            
+            if challenge_manager.active_challenge:
+                challenge_manager.active_challenge.quiz_type = quiz_type
+                
+                message, keyboard = challenge_manager.get_timer_selection_message()
+                await query.edit_message_text(
+                    text=message,
+                    reply_markup=keyboard,
+                    parse_mode='HTML'
+                )
+        
+        elif data.startswith("challenge_timer_"):
+            timer = int(data.replace("challenge_timer_", ""))
+            
+            if challenge_manager.active_challenge:
+                challenge_manager.active_challenge.timer_seconds = timer
+                
+                await query.edit_message_text(
+                    text=challenge_manager.get_challenge_starting_message(60),
+                    parse_mode='HTML'
+                )
+                
+                asyncio.create_task(
+                    start_challenge_quiz(context, query.message.chat_id, challenge_manager.active_challenge)
+                )
+    
+    except Exception as e:
+        logger.error(f"Error in challenge callback: {e}", exc_info=True)
+
+async def start_challenge_quiz(context: ContextTypes.DEFAULT_TYPE, chat_id: int, challenge):
+    """Start the challenge quiz after countdown."""
+    from bot.challenge_manager import ChallengeState
+    
+    try:
+        challenge.state = ChallengeState.RUNNING
+        challenge.quiz_start_time = datetime.now()
+        
+        await asyncio.sleep(60)
+        
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="🚀 <b>QUIZ STARTING NOW!</b> 🚀\n\nGet ready for 15 questions!",
+            parse_mode='HTML'
+        )
+        
+        try:
+            questions = await quiz_gen.generate_quiz(
+                chapter=challenge.chapter,
+                num_questions=15,
+                language=challenge.language
+            )
+        except Exception as e:
+            logger.error(f"Error generating quiz: {e}")
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="❌ Error generating quiz questions. Please try again.",
+            )
+            await challenge_manager.complete_current_challenge()
+            return
+        
+        if not questions:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="❌ Could not generate quiz questions. Please try again.",
+            )
+            await challenge_manager.complete_current_challenge()
+            return
+        
+        level_tag = f"\n\n📊 <i>Level: {challenge.quiz_type.upper()}</i>"
+        
+        participants = {}
+        poll_correct_options = {}
+        
+        for i, q in enumerate(questions):
+            question_text = q.get('question', 'Question')
+            options = q.get('options', ['A', 'B', 'C', 'D'])
+            correct_idx = q.get('correct_answer', 0)
+            
+            question_with_level = f"Q{i+1}. {question_text}{level_tag}"
+            
+            try:
+                poll = await context.bot.send_poll(
+                    chat_id=chat_id,
+                    question=question_with_level[:300],
+                    options=options[:4],
+                    type='quiz',
+                    correct_option_id=correct_idx,
+                    open_period=challenge.timer_seconds,
+                    is_anonymous=False
+                )
+                
+                poll_correct_options[poll.poll.id] = {
+                    'correct_option': correct_idx,
+                    'challenge_id': challenge.challenge_id
+                }
+                
+            except Exception as e:
+                logger.error(f"Error sending poll: {e}")
+            
+            await asyncio.sleep(challenge.timer_seconds + 2)
+        
+        await asyncio.sleep(2)
+        
+        leaderboard_message = challenge_manager.get_leaderboard_message([], challenge)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=leaderboard_message,
+            parse_mode='HTML'
+        )
+        
+        next_challenge = await challenge_manager.complete_current_challenge()
+        
+        if next_challenge:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=challenge_manager.get_next_challenge_message(60),
+                parse_mode='HTML'
+            )
+            
+            await asyncio.sleep(5)
+            
+            message, keyboard = challenge_manager.get_language_selection_message()
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=message,
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+        
+    except Exception as e:
+        logger.error(f"Error in challenge quiz: {e}", exc_info=True)
+        await challenge_manager.complete_current_challenge()
+
 @admin_only
 async def forceliveleaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Force send global live quiz leaderboard to all groups (admin only)."""
@@ -3283,6 +3537,9 @@ def main():
     application.add_handler(CommandHandler("fgloballeaderboard", fgloballeaderboard_command))
     application.add_handler(CommandHandler("fgroupleaderboard", fgroupleaderboard_command))
     
+    # Challenge command
+    application.add_handler(CommandHandler("challenge", challenge_command))
+    
     # User utility commands
     application.add_handler(CommandHandler("refresh", refresh_command))
     
@@ -3344,6 +3601,12 @@ def main():
     application.add_handler(CallbackQueryHandler(livequiz_count_callback, pattern="^livequiz_count_"))
     application.add_handler(CallbackQueryHandler(livequiz_time_callback, pattern="^livequiz_time_"))
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
+    
+    # Challenge callback handlers
+    application.add_handler(CallbackQueryHandler(challenge_callback_handler, pattern="^challenge_"))
+    
+    # Inline query handler for challenge sharing
+    application.add_handler(InlineQueryHandler(challenge_inline_query))
     
     application.add_error_handler(error_handler)
     
