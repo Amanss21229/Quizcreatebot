@@ -10,8 +10,8 @@ from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
 
-QUIZ_GROUP_LINK = "https://t.me/+YourQuizGroupLink"
-QUIZ_GROUP_ID = None
+QUIZ_GROUP_LINK = "https://t.me/sansaquiz"
+QUIZ_GROUP_ID = -1003297729839
 
 class ChallengeState(Enum):
     WAITING = "waiting"
