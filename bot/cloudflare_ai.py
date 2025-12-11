@@ -115,23 +115,38 @@ class CloudflareAIManager:
                     raise CloudflareAPIError(f"API error: {response.status_code} - {error_msg}")
                 
                 result = response.json()
+                logger.info(f"Full API response keys: {result.keys() if isinstance(result, dict) else type(result)}")
                 
                 if not result.get('success', False):
                     errors = result.get('errors', [])
                     error_msg = errors[0].get('message', 'Unknown error') if errors else 'Unknown error'
                     raise CloudflareAPIError(f"Request failed: {error_msg}")
                 
-                response_data = result.get('result', {}).get('response', '')
+                result_data = result.get('result', {})
+                logger.info(f"Result data type: {type(result_data)}, keys: {result_data.keys() if isinstance(result_data, dict) else 'N/A'}")
                 
-                if isinstance(response_data, list):
-                    if len(response_data) > 0 and isinstance(response_data[0], dict):
-                        response_text = response_data[0].get('content', '') or response_data[0].get('text', '')
+                response_text = ''
+                if isinstance(result_data, dict):
+                    response_text = result_data.get('response', '') or result_data.get('content', '') or result_data.get('text', '')
+                elif isinstance(result_data, str):
+                    response_text = result_data
+                elif isinstance(result_data, list):
+                    if len(result_data) > 0:
+                        first_item = result_data[0]
+                        if isinstance(first_item, dict):
+                            response_text = first_item.get('content', '') or first_item.get('text', '') or first_item.get('response', '')
+                        else:
+                            response_text = ' '.join(str(item) for item in result_data)
+                
+                if isinstance(response_text, list):
+                    if len(response_text) > 0 and isinstance(response_text[0], dict):
+                        response_text = response_text[0].get('content', '') or response_text[0].get('text', '')
                     else:
-                        response_text = ' '.join(str(item) for item in response_data)
-                elif isinstance(response_data, dict):
-                    response_text = response_data.get('content', '') or response_data.get('text', '') or str(response_data)
-                else:
-                    response_text = str(response_data) if response_data else ''
+                        response_text = ' '.join(str(item) for item in response_text)
+                
+                if not response_text:
+                    logger.error(f"Empty response from API. Full result: {result}")
+                    raise CloudflareAPIError("Received empty response from Cloudflare AI")
                 
                 logger.debug(f"Request successful, response length: {len(response_text)}")
                 
