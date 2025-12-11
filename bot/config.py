@@ -4,53 +4,27 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+CLOUDFLARE_ACCOUNT_ID = os.getenv('CLOUDFLARE_ACCOUNT_ID')
+CLOUDFLARE_API_TOKEN = os.getenv('CLOUDFLARE_API_TOKEN')
 
 if not TELEGRAM_BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN environment variable is required")
 
-def _has_any_groq_key():
-    """Check if any Groq API key is available."""
-    if os.getenv('GROQ_API_KEY'):
-        return True
-    for i in range(2, 11):
-        if os.getenv(f'GROQ_API_KEY_{i}'):
-            return True
-    return False
+if not CLOUDFLARE_ACCOUNT_ID:
+    raise ValueError("CLOUDFLARE_ACCOUNT_ID environment variable is required")
 
-if not _has_any_groq_key():
-    raise ValueError("At least one GROQ_API_KEY environment variable is required (GROQ_API_KEY or GROQ_API_KEY_2 through GROQ_API_KEY_10)")
-
-def get_all_groq_keys():
-    """Get all available Groq API keys from environment."""
-    keys = []
-    primary = os.getenv('GROQ_API_KEY')
-    if primary:
-        keys.append(primary)
-    for i in range(2, 11):
-        key = os.getenv(f'GROQ_API_KEY_{i}')
-        if key:
-            keys.append(key)
-    return keys
+if not CLOUDFLARE_API_TOKEN:
+    raise ValueError("CLOUDFLARE_API_TOKEN environment variable is required")
 
 MIN_QUESTIONS = 1
 MAX_QUESTIONS = 20
 
 WATERMARK = "【~@DrQuizRobot】"
 
-# Admin user IDs (add your Telegram user ID here)
-# IMPORTANT: Add at least one admin ID to use /fjoin and /removefjoin commands
-# 
-# To get your user ID:
-# 1. Send a message to @userinfobot on Telegram, OR
-# 2. Use the /myid command in this bot
-#
-# Then add your ID to the list below:
 ADMIN_USER_IDS = [
-    8162524828,  # Permanent admin
+    8162524828,
 ]
 
-# Load admin IDs from environment variable if available (for production)
 admin_ids_env = os.getenv('ADMIN_USER_IDS')
 if admin_ids_env:
     try:
@@ -59,7 +33,6 @@ if admin_ids_env:
     except:
         pass
 
-# NEET scoring pattern
 NEET_CORRECT_MARKS = 4
 NEET_WRONG_MARKS = -1
 NEET_UNATTEMPTED_MARKS = 0

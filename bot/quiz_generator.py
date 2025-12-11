@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from bot.config import WATERMARK
-from bot.groq_key_manager import groq_key_manager
+from bot.cloudflare_ai import get_cloudflare_ai_manager
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +99,7 @@ question_history = QuestionHistoryManager()
 
 class QuizGenerator:
     def __init__(self):
-        self.key_manager = groq_key_manager
-        self.model = "llama-3.3-70b-versatile"
+        self.ai_manager = get_cloudflare_ai_manager()
         self.history_manager = question_history
         self.max_regeneration_attempts = 3
         self.verification_passes_required = 3
@@ -146,9 +145,8 @@ RESPOND WITH EXACTLY ONE WORD:
 Your response (one word only):"""
 
         try:
-            chat_completion = self.key_manager.chat_completion(
+            chat_completion = self.ai_manager.chat_completion(
                 messages=[{"role": "user", "content": verification_prompt}],
-                temperature=0.1,
                 max_tokens=10
             )
             response = chat_completion.choices[0].message.content.strip().upper()
@@ -207,9 +205,8 @@ Your response (one word only):"""
         """Generate raw questions without verification (internal use)."""
         prompt = self._create_prompt(chapter, num_questions, language)
         
-        chat_completion = self.key_manager.chat_completion(
+        chat_completion = self.ai_manager.chat_completion(
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
             max_tokens=4096
         )
         response_text = chat_completion.choices[0].message.content
@@ -404,7 +401,7 @@ OUTPUT REQUIREMENTS:
 Generate the translated JSON now:"""
         
         try:
-            chat_completion = self.key_manager.chat_completion(
+            chat_completion = self.ai_manager.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.5,
                 max_tokens=4096
@@ -483,7 +480,7 @@ OUTPUT RULES:
 - No technical formatting symbols"""
         
         try:
-            chat_completion = self.key_manager.chat_completion(
+            chat_completion = self.ai_manager.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.5,
                 max_tokens=2048
@@ -525,7 +522,7 @@ OUTPUT RULES:
         """Generate raw JEE questions without verification (internal use)."""
         prompt = self._create_jee_prompt(chapter, num_questions, language)
         
-        chat_completion = self.key_manager.chat_completion(
+        chat_completion = self.ai_manager.chat_completion(
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=4096
