@@ -1,9 +1,10 @@
-modules = ["python-3.11", "postgresql-16"]
+modules = ["python-3.11", "postgresql-16", "nodejs-22"]
 
 [agent]
 stack = "AGENT_STACK"
 integrations = ["agentstack-trigger-telegram:1.0.0", "python_database:1.0.0"]
 expertMode = true
+automationTriggerConnectorName = "legacy_telegram"
 
 [nix]
 channel = "stable-25_05"
