@@ -121,7 +121,18 @@ class CloudflareAIManager:
                     error_msg = errors[0].get('message', 'Unknown error') if errors else 'Unknown error'
                     raise CloudflareAPIError(f"Request failed: {error_msg}")
                 
-                response_text = result.get('result', {}).get('response', '')
+                response_data = result.get('result', {}).get('response', '')
+                
+                if isinstance(response_data, list):
+                    if len(response_data) > 0 and isinstance(response_data[0], dict):
+                        response_text = response_data[0].get('content', '') or response_data[0].get('text', '')
+                    else:
+                        response_text = ' '.join(str(item) for item in response_data)
+                elif isinstance(response_data, dict):
+                    response_text = response_data.get('content', '') or response_data.get('text', '') or str(response_data)
+                else:
+                    response_text = str(response_data) if response_data else ''
+                
                 logger.debug(f"Request successful, response length: {len(response_text)}")
                 
                 return CloudflareResponse(response_text)

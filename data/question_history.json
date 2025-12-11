@@ -1,8 +1,24 @@
 {
   "questions": {
-    "a576de3685f2bc3cda9d4696ccc13e7e": {
-      "timestamp": 1765480811.214798,
-      "preview": "According to NCERT, the trigonometric function that relates the ratio of the length of the side oppo"
+    "86b3b174f809f9b7fdfc8822ee9956d7": {
+      "timestamp": 1765481177.440719,
+      "preview": "If A and B are two sets such that n(A ∪ B) = 20, n(A ∩ B) = 5, then the value of n(A) + n(B) is: (NE"
+    },
+    "dd91138a3d69fb7b5b0e47aaf204f903": {
+      "timestamp": 1765481177.440719,
+      "preview": "If A and B are two sets such that A ⊂ B, then which of the following is true? (NEET 2018)"
+    },
+    "41516186a490a010e3bd13d8f42ab7f9": {
+      "timestamp": 1765481177.440719,
+      "preview": "The number of elements in the power set of {1, 2, 3, 4} is: (NEET 2022)"
+    },
+    "05761637160b8da67d9d7ab51046e858": {
+      "timestamp": 1765481177.440719,
+      "preview": "Let A and B be two sets such that n(A) = 20, n(B) = 30, n(A ∪ B) = 35. Then, n(A ∩ B) is: (NEET 2021"
+    },
+    "32992a46c5f6541cbabe54ace07c775c": {
+      "timestamp": 1765481177.440719,
+      "preview": "If A = {1, 2, 3} and B = {3, 4, 5}, then A ∩ B is: (NEET 2017)"
     }
   }
 }
