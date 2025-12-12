@@ -2053,6 +2053,76 @@ async def challenge_inline_query(update: Update, context: ContextTypes.DEFAULT_T
     
     await update.inline_query.answer(results, cache_time=60)
 
+async def accept_challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle accept challenge button click - starts the quiz in quiz group."""
+    query = update.callback_query
+    data = query.data
+    user = query.from_user
+    
+    try:
+        challenge_id = data.replace("accept_challenge_", "")
+        challenge = challenge_manager.pending_challenges.get(challenge_id)
+        
+        if not challenge:
+            await query.answer("⚠️ This challenge has expired!", show_alert=True)
+            return
+        
+        if challenge_manager.is_challenge_accepted(challenge_id):
+            await query.answer("⚠️ This challenge has already been accepted!", show_alert=True)
+            return
+        
+        if not challenge_manager.mark_challenge_accepted(challenge_id, user.id):
+            await query.answer("⚠️ Challenge already in progress!", show_alert=True)
+            return
+        
+        await query.answer("✅ Challenge Accepted! Head to the quiz group now!", show_alert=True)
+        
+        await query.edit_message_text(
+            text=(
+                f"✅ <b>CHALLENGE ACCEPTED!</b> ✅\n\n"
+                f"🎯 <b>{user.first_name}</b> accepted the challenge!\n\n"
+                f"📚 <b>Topic:</b> {challenge.chapter}\n\n"
+                f"🏟️ Head to the quiz group to participate:\n"
+                f"{challenge_manager.quiz_group_link}\n\n"
+                f"⏳ <i>Quiz starting soon...</i>"
+            ),
+            parse_mode='HTML'
+        )
+        
+        is_active = await challenge_manager.is_challenge_active()
+        queue_position = await challenge_manager.add_to_queue(challenge)
+        
+        if is_active or queue_position > 0:
+            await context.bot.send_message(
+                chat_id=challenge_manager.quiz_group_id,
+                text=challenge_manager.get_quiz_busy_message() + f"\n\n📋 Queue position: {queue_position}",
+                parse_mode='HTML'
+            )
+        else:
+            message, keyboard = challenge_manager.get_language_selection_message()
+            await context.bot.send_message(
+                chat_id=challenge_manager.quiz_group_id,
+                text=(
+                    f"🔥 <b>NEW CHALLENGE!</b> 🔥\n\n"
+                    f"📚 <b>Topic:</b> {challenge.chapter}\n"
+                    f"⚔️ <b>By:</b> {challenge.challenger_name}\n"
+                    f"✅ <b>Accepted by:</b> {user.first_name}\n\n"
+                ),
+                parse_mode='HTML'
+            )
+            await context.bot.send_message(
+                chat_id=challenge_manager.quiz_group_id,
+                text=message,
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+        
+        logger.info(f"Challenge {challenge_id} accepted by {user.first_name} (ID: {user.id})")
+        
+    except Exception as e:
+        logger.error(f"Error in accept_challenge_callback: {e}", exc_info=True)
+        await query.answer("❌ Error accepting challenge. Try again!", show_alert=True)
+
 async def challenge_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle challenge-related callback queries."""
     query = update.callback_query
@@ -3611,6 +3681,7 @@ def main():
     application.add_handler(CallbackQueryHandler(check_membership_callback, pattern="^check_membership$"))
     
     # Challenge callback handlers
+    application.add_handler(CallbackQueryHandler(accept_challenge_callback, pattern="^accept_challenge_"))
     application.add_handler(CallbackQueryHandler(challenge_callback_handler, pattern="^challenge_"))
     
     # Inline query handler for challenge sharing

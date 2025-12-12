@@ -114,7 +114,7 @@ class ChallengeManager:
             f"🗡️ <b>{challenge.challenger_name}</b> thinks they can beat you!\n\n"
             f"📚 <b>Battle Topic:</b> {challenge.chapter}\n"
             f"❓ <b>15 Mind-Bending Questions</b>\n\n"
-            f"⭐ <i>Challenge will start in 60 seconds after you accept!</i>\n\n"
+            f"⭐ <i>Quiz will start in {self.quiz_group_link} after you accept!</i>\n\n"
             f"🔥 Do you have what it takes?\n"
             f"💥 Prove your knowledge and claim victory!"
         )
@@ -122,7 +122,7 @@ class ChallengeManager:
         keyboard = [
             [InlineKeyboardButton(
                 "✅ Accept The Challenge",
-                url=self.quiz_group_link
+                callback_data=f"accept_challenge_{challenge.challenge_id}"
             )],
             [InlineKeyboardButton(
                 "🎁 Challenge Your Friends Also",
@@ -131,6 +131,26 @@ class ChallengeManager:
         ]
         
         return message, InlineKeyboardMarkup(keyboard)
+    
+    def is_challenge_accepted(self, challenge_id: str) -> bool:
+        """Check if a challenge has already been accepted."""
+        challenge = self.pending_challenges.get(challenge_id)
+        if challenge and challenge.state != ChallengeState.WAITING:
+            return True
+        return False
+    
+    def mark_challenge_accepted(self, challenge_id: str, user_id: int) -> bool:
+        """Mark a challenge as accepted. Returns True if successfully marked, False if already accepted."""
+        challenge = self.pending_challenges.get(challenge_id)
+        if not challenge:
+            return False
+        if challenge.state != ChallengeState.WAITING:
+            return False
+        if user_id in challenge.accepted_users:
+            return False
+        challenge.accepted_users.append(user_id)
+        challenge.state = ChallengeState.LANGUAGE_SELECT
+        return True
     
     def get_inline_result_message(self, challenge: ChallengeSession) -> str:
         return (
@@ -154,6 +174,10 @@ class ChallengeManager:
     
     async def is_challenge_running(self) -> bool:
         return self.active_challenge is not None and self.active_challenge.state == ChallengeState.RUNNING
+    
+    async def is_challenge_active(self) -> bool:
+        """Check if there's any active challenge (including setup phase)."""
+        return self.active_challenge is not None and self.active_challenge.state != ChallengeState.COMPLETED
     
     async def get_queue_position(self, challenge_id: str) -> int:
         for i, c in enumerate(self.challenge_queue):
